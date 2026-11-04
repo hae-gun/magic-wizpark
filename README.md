@@ -5,9 +5,8 @@ KT 위즈 팬이 만든 비공식 3D 응원 공간입니다. 구단 로고와 �
 ## 구조
 
 - `src/page.html`: 페이지 원본
-- `public/index.html`: 배포용 페이지 (`./build.sh`로 생성)
-- `server/collector.mjs`: 네이버 중계 수집기
-- `patches/wizpark-all.patch`: 고해야지 레포에 페이지와 수집기를 넣는 패치
+- `index.html`, `public/index.html`: 배포용 페이지 (`./build.sh`로 생성, GitHub Pages는 저장소 최상위 `index.html`을 씀)
+- `server/collector.mjs`: KBO 중계 수집기
 
 ## 내 컴퓨터에서 보기
 
@@ -15,17 +14,8 @@ KT 위즈 팬이 만든 비공식 3D 응원 공간입니다. 구단 로고와 �
 
 http://localhost:8000 을 엽니다. 수집 서버가 아직 없으면 시연 장면이 나옵니다.
 
-## 고해야지 서버로 공개
+## 공개 구성
 
-    cd ~/project/gohaeyaji
-    git pull
-    git apply ../magic-wizpark/patches/wizpark-all.patch
-    git add infra frontend/public/wizpark
-    git commit -m "한국시리즈 임시 위즈파크 페이지와 중계 수집기 추가"
-    git push
-    ssh -i ~/.ssh/<서버키> rocky@<APP_IP> gohae-deploy
-
-공개 주소는 https://gohaeyaji.com/wizpark/ , 중계 파일은 https://api.gohaeyaji.com/wiz/state.json 입니다.
-
-이후 페이지를 고쳤다면 `./build.sh` 뒤에 `public/index.html`을 `~/project/gohaeyaji/frontend/public/wizpark/index.html`로 복사합니다.
-# magic-wizpark
+- 페이지: 이 저장소의 GitHub Pages (`https://wiz.gohaeyaji.com/`)
+- 중계: 고해야지 서버의 `wiz-relay` 컨테이너가 KBO 공식 페이지를 읽어 `https://api.gohaeyaji.com/wiz/state.json`을 만듭니다.
+- `server/collector.mjs`는 `~/project/gohaeyaji/infra/app/wiz-relay/collector.mjs`와 같은 파일입니다. 고치면 두 곳을 맞춥니다.
