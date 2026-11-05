@@ -332,8 +332,8 @@ function nearestRing(x,z){let b=0,bd=1e9;for(let i=0;i<ring.length;i++){const r=
  x.strokeStyle='#f7f2ea';x.lineWidth=.3*k;for(const s of[1,-1]){x.beginPath();x.moveTo(hx,hy);x.lineTo(...px(s*70,70));x.stroke()}
  x.beginPath();x.arc(hx,hy,3.2*k,0,6.3);x.stroke();
  /* faint spell circle mown into centre field, an original motif */
- x.save();x.translate(...px(0,74));x.strokeStyle='#ffffff1f';x.lineWidth=.55*k;[17,13].forEach(r=>{x.beginPath();x.arc(0,0,r*k,0,6.3);x.stroke()});
- x.beginPath();for(let i=0;i<=5;i++){const a=i*2*Math.PI*2/5-Math.PI/2;x[i?'lineTo':'moveTo'](Math.cos(a)*13*k,Math.sin(a)*13*k)}x.stroke();x.restore();
+ x.save();x.translate(...px(0,74));if(T.wizard){x.strokeStyle='#ffffff1f';x.lineWidth=.55*k;[17,13].forEach(r=>{x.beginPath();x.arc(0,0,r*k,0,6.3);x.stroke()});
+ x.beginPath();for(let i=0;i<=5;i++){const a=i*2*Math.PI*2/5-Math.PI/2;x[i?'lineTo':'moveTo'](Math.cos(a)*13*k,Math.sin(a)*13*k)}x.stroke()}else{x.fillStyle='#ffffff24';x.beginPath();x.ellipse(0,3.5*k,8.5*k,7*k,0,0,6.3);x.fill();[[-9.5,4],[-3.6,1.2],[3.6,1.2],[9.5,4]].forEach(([q,w],i)=>{x.beginPath();x.ellipse(q*k,(-5.5-w)*k+(i%3?0:0),3*k,4.2*k,q*.05,0,6.3);x.fill()})}x.restore();
  const t=tex(c);const m=new THREE.Mesh(new THREE.PlaneGeometry(W,W),new THREE.MeshLambertMaterial({map:t}));m.rotation.x=-Math.PI/2;m.material.side=THREE.DoubleSide;m.position.set(0,-.02,W/2-90);m.receiveShadow=true;scene.add(m);scene.userData.field=m;
  const base=(x0,z0)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(.55,.1,.55),glow(0xffffff));b.rotation.y=Math.PI/4;b.position.set(x0,.05,z0);scene.add(b)};
  base(d,d);base(0,d*2);base(-d,d);base(0,0);
