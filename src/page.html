@@ -94,8 +94,12 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 
 @media (max-width:860px){
   #online{top:calc(90px + env(safe-area-inset-top,0px))}
-  #dock button{min-width:50px;padding:5px 6px}#dock #cheer{min-width:66px}
+  #dock{display:grid;grid-template-columns:1.3fr repeat(5,minmax(0,1fr));width:calc(100vw - 12px);box-sizing:border-box}
+  #dock button{min-width:0;min-height:42px;padding:3px 2px;font-size:11.5px;white-space:normal;word-break:keep-all}
+  #dock #cheer{min-width:0;order:-1;grid-row:span 2;font-size:19px}
   #dock kbd{display:none!important}
+  #drawer{bottom:calc(120px + env(safe-area-inset-bottom,0px));max-height:min(54vh,520px)}
+  #song{top:calc(124px + env(safe-area-inset-top,0px));bottom:auto}
 }
 </style>
 
@@ -819,6 +823,8 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
  const follow=(dt,busy)=>{if(!on)return;const now=performance.now();if(busy){idle=now;setCam(false);return}if(!stay&&!cam&&now-idle>3500)setCam(true)};
  return{start,step,follow,get rest(){return rest},get cam(){return on&&cam},toggle(){stay=cam;idle=performance.now();setCam(!cam)},focus,on:()=>on,get S(){return S},get actors(){return actors}}})();
 
+/* the player has to stay visible, so people can drag it out of the way; the spot is remembered */
+(()=>{const b=$('song'),h=$('songHead');let d=null;const put=(x,y)=>{b.style.left=clamp(x,4,innerWidth-212)+'px';b.style.top=clamp(y,4,innerHeight-250)+'px';b.style.bottom='auto'};const s=String(store.get('songPos','')).split(',').map(Number);if(s.length===2&&s.every(Number.isFinite))put(s[0],s[1]);h.style.cursor='move';h.style.touchAction='none';h.onpointerdown=e=>{if(e.target.closest('button'))return;const r=b.getBoundingClientRect();d=[e.clientX-r.left,e.clientY-r.top];h.setPointerCapture(e.pointerId)};h.onpointermove=e=>{if(d)put(e.clientX-d[0],e.clientY-d[1])};h.onpointerup=h.onpointercancel=()=>{if(d){d=null;store.set('songPos',parseInt(b.style.left)+','+parseInt(b.style.top))}}})();
 /* anonymous usage counts: no identifier leaves the browser, only yes or no flags */
 function hit(e,extra=''){try{fetch(`${API}/hit?e=${e}${extra}`,{mode:'no-cors',keepalive:true}).catch(()=>{})}catch{}}
 function refSource(){const q=new URLSearchParams(location.search).get('utm_source');const h=q||(()=>{try{return new URL(document.referrer).hostname}catch{return ''}})();if(!h||/gohaeyaji|github\.io/.test(h))return'direct';for(const k of['instagram','kakao','naver','google','youtube'])if(h.includes(k)||(k==='youtube'&&h.includes('youtu.be')))return k;return'other'}
