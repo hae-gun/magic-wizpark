@@ -36,6 +36,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #mode{top:calc(62px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);font-size:12px;padding:3px 10px;border-radius:99px;background:#0009;color:var(--dim);white-space:nowrap}
 #online{top:calc(14px + env(safe-area-inset-top,0px));left:calc(12px + env(safe-area-inset-left,0px));font-size:12px;padding:4px 10px;border-radius:99px;background:#0009}
 #bench{top:calc(92px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 8px 7px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-size:13px;font-weight:600;white-space:nowrap;max-width:calc(100vw - 16px)}#benchJoin{padding:7px 12px;border-radius:5px;background:var(--kt-red);font-weight:700}
+#song{left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:208px;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}#songHead{display:flex;justify-content:space-between;align-items:center;padding:3px 4px 3px 9px;font-size:12px;font-weight:600}#songOff{width:28px;height:28px}#ytBox{width:208px;height:117px}#ytBox iframe,#ytBox div{width:100%;height:100%;border:0}
 #teamPick{display:flex;gap:6px;margin:12px 0 2px}#teamPick button{flex:1;padding:9px 6px;border-radius:5px;background:#ffffff14;font-size:13px;font-weight:600}#teamPick button[aria-pressed=true]{background:var(--kt-red)}
 #mode b{color:var(--gold);font-weight:600}
 
@@ -96,6 +97,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 </div>
 <div id="mode" class="hud"></div>
 <div id="online" class="hud" hidden></div>
+<aside id="song" class="hud" hidden aria-label="응원가"><div id="songHead"><span id="songName"></span><button id="songOff" aria-label="응원가 닫기">✕</button></div><div id="ytBox"></div></aside>
 <div id="bench" class="hud" hidden role="status"><span id="benchText"></span><button id="benchJoin">난입하기</button></div>
 <section id="drawer" class="hud" hidden aria-label="선택 패널"><button id="drawerClose" aria-label="닫기">✕</button><h2 id="drawerT"></h2><p id="drawerS"></p><div id="grid"></div></section>
 <nav id="dock" class="hud" aria-label="메뉴">
@@ -585,7 +587,7 @@ function applyState(st,silent){if(!st)return;const prev=live.state;live.state=st
  const ktBat=(st.top?'away':'home')===(live.teams.ktHome?'home':'away');
  if(prev&&!silent){const ktNow=live.teams.ktHome?st.home:st.away,ktWas=live.teams.ktHome?prev.home:prev.away,opNow=live.teams.ktHome?st.away:st.home,opWas=live.teams.ktHome?prev.away:prev.home;
   const hrNow=fresh.some(p=>classify(p.text)==='hr');if(ktNow>ktWas&&!hrNow){shout('득점!');firework();crowdBurst(1)}else if(opNow>opWas){crowdBurst(.04,2.8)}}
- if(st.batter&&st.batter.code!==live.last.b){live.last.b=st.batter.code;announce('batter',st.batter)}
+ if(st.batter&&st.batter.code!==live.last.b){live.last.b=st.batter.code;announce('batter',st.batter);Song.batter(st.batter.side==='home'?live.teams.homeCode:live.teams.awayCode,st.batter.name)}
  if(st.pitcher&&st.pitcher.code!==live.last.p){const changed=!!live.last.p;live.last.p=st.pitcher.code;setTimeout(()=>announce('pitcher',st.pitcher,changed),st.batter&&!silent?2600:0)}
  live.first=false;renderHud();}
 function addFeed(t){live.lines=live.lines||[];live.lines.unshift({t,c:classify(t)});live.lines.length=Math.min(live.lines.length,12);renderBoard()}
@@ -633,17 +635,21 @@ const BENCH_LINES=['뭐야 뭐야!','진정해!','말려 말려!','비켜봐!','
 var Bench=(()=>{const npc=[];let phase=0,local=null,dust=0,lineT=0;const bar=$('bench');
  const spawn=()=>{for(let i=0;i<14;i++){const kt=i%2===0,id=kt?'home':'ss-home',g=Lite.make(id,'none'),side=kt?-1:1;g.position.set(side*(30+rand(6)),0,18+rand(6));npc.push({g,kt,tx:0,tz:18,i})}};
  const clear=()=>{npc.splice(0).forEach(n=>scene.remove(n.g))};
- const heroIn=()=>{nav.bench={x:hero.position.x,z:hero.position.z,y:nav.fixedY??null};nav.target=null;marker.visible=false;FX.emit(hero.position.x,hero.position.y+1,hero.position.z,'#ffc861',40,6,.8,.5);hero.position.set(rand(-3,3),0,18.4+rand(-3,3));nav.fixedY=0;nav.y=0;nav.snap=true};
- const heroOut=()=>{const b=nav.bench;if(!b)return;nav.bench=null;nav.fixedY=b.y;hero.position.x=b.x;hero.position.z=b.z;nav.y=groundAt(b.x,b.z);hero.root.position.set(0,0,0);FX.emit(b.x,nav.y+1,b.z,'#ffc861',40,6,.8,.5);nav.snap=true};
- const set=(p,joined)=>{if(p===phase)return;const was=phase;phase=p;if(p===2){spawn();shout('벤치클리어링!');crowdBurst(1.2,12);if(joined)heroIn()}if(p===3){takeoverDone();npc.forEach((n,i)=>{const k=Math.floor(i/2);n.tx=n.kt?-1.1:1.1;n.tz=12+k*1.6});lineT=0;if(nav.bench){hero.position.set(0,0,23.6);showBubble(hero,'좋은 경기!')}}if(p===0&&was>=2){npc.forEach(n=>{n.tx=(n.kt?-1:1)*34;n.tz=20;n.leaving=true});setTimeout(clear,2600);heroOut()}};
+ const heroIn=()=>{nav.bench={x:hero.position.x,z:hero.position.z,y:nav.fixedY??null,mode:'in',tx:rand(-3,3),tz:18.4+rand(-3,3)};nav.climb=null;nav.fixedY=null;nav.target=null;marker.visible=false;showBubble(hero,'난입이다!')};
+ const heroOut=()=>{if(nav.bench){nav.bench.mode='back';showBubble(hero,'자리로 복귀!')}};
+ const runTo=(tx,tz,dt,t)=>{const dx=tx-hero.position.x,dz=tz-hero.position.z,d=Math.hypot(dx,dz);if(d<.35)return true;const v=Math.min(Math.max(12,nav.bench.v||12),d/dt);hero.position.x+=dx/d*v*dt;hero.position.z+=dz/d*v*dt;hero.rotation.y=Math.atan2(dx,dz);const sw=Math.sin(t*16)*.9;hero.legL.rotation.x=sw;hero.legR.rotation.x=-sw;hero.armR.p.rotation.set(-sw*.9,0,-.2);hero.armL.p.rotation.set(sw*.9,0,.2);hero.root.position.y=Math.abs(Math.sin(t*16))*.1;return false};
+ const set=(p,joined)=>{if(p===phase)return;const was=phase;phase=p;if(p===2){spawn();shout('벤치클리어링!');crowdBurst(1.2,12);if(joined)heroIn()}if(p===3){takeoverDone();npc.forEach((n,i)=>{const k=Math.floor(i/2);n.tx=n.kt?-1.1:1.1;n.tz=12+k*1.6});lineT=0;if(nav.bench){nav.bench.mode='line';nav.bench.tx=0;nav.bench.tz=23.6;showBubble(hero,'좋은 경기!')}}if(p===0&&was>=2){npc.forEach(n=>{n.tx=(n.kt?-1:1)*34;n.tz=20;n.leaving=true});setTimeout(clear,2600);heroOut()}};
  const takeoverDone=()=>{live.takeover=null;renderBoard()};
  return{get phase(){return phase},
   update(st){const[p,n,need,sec,joined]=st;bar.hidden=p!==1;if(p===1){$('benchText').textContent=`벤치클리어링 모집 ${n}/${need}명, ${sec}초 남음`;$('benchJoin').hidden=!!joined}set(p,!!joined)},
-  join(){if(Net.live()){Net.send(['b']);return}if(local||phase)return;local=true;bar.hidden=false;$('benchText').textContent='혼자 보기: 벤치클리어링 시연';$('benchJoin').hidden=true;setTimeout(()=>{bar.hidden=true;set(2,true)},900);setTimeout(()=>set(3,true),9000);setTimeout(()=>{set(0,true);local=null},14000)},
+  join(){if(Net.live()){Net.send(['b']);return}if(local||phase)return;local=true;bar.hidden=false;$('benchText').textContent='혼자 보기: 벤치클리어링 시연';$('benchJoin').hidden=true;setTimeout(()=>{bar.hidden=true;set(2,true)},900);setTimeout(()=>set(3,true),13000);setTimeout(()=>{set(0,true);local=null},19000)},
   step(dt,t){if(!npc.length&&!nav.bench)return;dust+=dt;if(phase===2&&dust>.05){dust=0;FX.emit(rand(-3.5,3.5),rand(.3,2),18.4+rand(-3.5,3.5),'#7a5c3c',3,4,.7,.7,2);if(Math.random()<.06)FX.emit(rand(-3,3),2.4,18.4+rand(-3,3),'#fff3b0',12,6,.4,.5)}lineT+=dt;
    for(const n of npc){if(phase===2){n.tx=Math.sin(t*2+n.i)*rand(2,4.5);n.tz=18.4+Math.cos(t*2.6+n.i*2)*rand(2,4.5);if(Math.random()<.012)showBubble(n.g,BENCH_LINES[n.i%BENCH_LINES.length])}const k=Math.min(1,dt*(phase===2?7:3.2)),g=n.g;g.position.x+=(n.tx-g.position.x)*k;g.position.z+=(n.tz-g.position.z)*k;g.position.y=phase===2?Math.abs(Math.sin(t*12+n.i))*.5:0;const a=g.userData;if(phase===2){g.rotation.y=t*6+n.i;a.armL.rotation.z=2+Math.sin(t*15+n.i);a.armR.rotation.z=-2-Math.sin(t*15+n.i);a.armL.position.y=a.armR.position.y=1}else if(phase===3){g.rotation.y=n.kt?Math.PI/2:-Math.PI/2;a.armL.rotation.z=a.armR.rotation.z=n.kt?-1.2:1.2;a.armL.position.y=a.armR.position.y=.82+Math.sin(t*9)*.08;if(lineT>1.6&&!n.said){n.said=true;showBubble(n.g,n.i%3?'미안!':'좋은 경기!')}}else{g.rotation.y=n.kt?-1.6:1.6;a.armL.rotation.z=a.armR.rotation.z=0}}
-   if(nav.bench&&phase===2){hero.position.x=Math.sin(t*2.4)*3;hero.position.z=18.4+Math.cos(t*3.1)*3;hero.rotation.y=t*7;hero.root.position.y=Math.abs(Math.sin(t*12))*.5;hero.armR.p.rotation.set(-.2,0,-2.2+Math.sin(t*15));hero.armL.p.rotation.set(-.2,0,2.2-Math.sin(t*15))}
-   if(nav.bench&&phase===3){hero.rotation.y=Math.PI/2;hero.armR.p.rotation.set(-1.4,0,0);hero.armL.p.rotation.set(0,0,.14)}}}})();
+   const b=nav.bench;if(!b)return;b.v=b.v||Math.hypot(b.x-b.tx,b.z-b.tz)/5;
+   if(b.mode==='in'&&runTo(b.tx,b.tz,dt,t))b.mode='fight';
+   if(b.mode==='fight'){hero.position.x=Math.sin(t*2.4)*3;hero.position.z=18.4+Math.cos(t*3.1)*3;hero.rotation.y=t*7;hero.root.position.y=Math.abs(Math.sin(t*12))*.5;hero.armR.p.rotation.set(-.2,0,-2.2+Math.sin(t*15));hero.armL.p.rotation.set(-.2,0,2.2-Math.sin(t*15))}
+   if(b.mode==='line'&&runTo(b.tx,b.tz,dt,t)){hero.rotation.y=Math.PI/2;hero.root.position.y=0;hero.armR.p.rotation.set(-1.4,0,0);hero.armL.p.rotation.set(0,0,.14)}
+   if(b.mode==='back'&&runTo(b.x,b.z,dt,t)){nav.bench=null;nav.fixedY=b.y;hero.root.position.set(0,0,0);hero.rotation.y=Math.atan2(0-b.x,150-b.z)}}}})();
 function renderSeries(){const{x,c,t}=seriesBoard,W=c.width,H=c.height,list=live.series||[],g=x.createLinearGradient(0,0,W,0);g.addColorStop(0,T.deep);g.addColorStop(1,'#120c1c');x.fillStyle=g;x.fillRect(0,0,W,H);x.textBaseline='middle';x.textAlign='left';x.fillStyle=T.gold;x.font='36px "Black Han Sans",sans-serif';x.fillText('2026 한국시리즈',30,50);
  const wins={};for(const r of list){const w=r.homeScore>r.awayScore?r.homeTeamName:r.awayScore>r.homeScore?r.awayTeamName:null;if(w)wins[w]=(wins[w]||0)+1}const names=list.length?[list[0].awayTeamName,list[0].homeTeamName]:[];x.fillStyle='#fff';x.font='46px "Black Han Sans",sans-serif';x.fillText(names.length?`${names[0]} ${wins[names[0]]||0} : ${wins[names[1]]||0} ${names[1]}`:'경기 결과 집계 중',30,132);
  const left=330,cw=(W-left-20)/7;for(let i=0;i<7;i++){const r=list[i],X=left+i*cw;x.fillStyle=r?'#ffffff14':'#ffffff08';x.fillRect(X+4,16,cw-8,H-32);x.textAlign='center';x.fillStyle=T.gold;x.font='24px "IBM Plex Sans KR",sans-serif';x.fillText(`${i+1}차전`,X+cw/2,48);x.fillStyle=r?'#fff':'#ffffff55';x.font='34px "Black Han Sans",sans-serif';if(r){const d=`${+r.date.slice(4,6)}.${+r.date.slice(6,8)}`;x.fillText(`${r.awayScore} : ${r.homeScore}`,X+cw/2,98);x.font='20px "IBM Plex Sans KR",sans-serif';x.fillStyle='#d4c9df';x.fillText(`${r.awayTeamName} : ${r.homeTeamName}`,X+cw/2,136);x.fillText(d,X+cw/2,160)}else x.fillText('-',X+cw/2,108)}t.needsUpdate=true}
@@ -666,8 +672,17 @@ const Demo=(()=>{const P=(pcode,name,posName,batOrder)=>({pcode,name,posName,bat
   return{inn:last[0],homeOrAway:String(last[1]),inningScore:{home:{1:last[7]},away:{1:0,2:last[0]>1?last[8]:undefined}},homeLineup:home,awayLineup:away,homeEntry:home,awayEntry:away,currentGameState:{batter:last[2],pitcher:last[3],ball:String(last[4]),strike:String(last[5]),out:String(last[6]),homeScore:String(last[7]),awayScore:String(last[8]),homeHit:String(last[7]?4:0),awayHit:String(last[8]),homeError:'0',awayError:'0',base1:'0',base2:last[9]?'1':'0',base3:'0'},textRelays:plays.slice(-14)}};
  return{step(){const s=normalize(raw());applyState(s,false);i++;if(i>=seq.length){i=0;loops++;live.seen.clear();live.last={};live.first=true;live.lines=[]}},raw}})();
 
+/* cheer songs: the official YouTube player, shown small as its terms require */
+const Song=(()=>{let list=new Map(),yt=null,ready=false,current=null,off=false,loading=false;const box=$('song');
+ const load=()=>{if(loading)return;loading=true;window.onYouTubeIframeAPIReady=()=>{yt=new YT.Player('ytBox',{width:208,height:117,playerVars:{playsinline:1,rel:0,controls:1},events:{onReady(){ready=true;play(current)},onStateChange(e){if(e.data===0&&current)yt.seekTo(current.start,true)},onError(){box.hidden=true}}})};const t=document.createElement('script');t.src='https://www.youtube.com/iframe_api';t.onerror=()=>{loading=false};document.head.append(t)};
+ const play=c=>{if(!c||off||!Audio_.on)return;box.hidden=false;$('songName').textContent=`${c.name} 응원가`;if(!ready){load();return}yt.loadVideoById({videoId:c.videoId,startSeconds:c.start,...(c.start?{endSeconds:c.start+70}:{})})};
+ const stop=()=>{current=null;box.hidden=true;if(ready)yt.stopVideo()};
+ $('songOff').onclick=()=>{off=true;stop()};
+ return{async refresh(){try{const r=await fetch(API+'/cheers.json');if(!r.ok)return;const d=await r.json();list=new Map(d.cheers.map(c=>[c.team+':'+c.name,c]))}catch{}},
+  batter(code,name){if(live.status!=='live'){return}const c=list.get(code+':'+name);if(!c){stop();return}if(current?.videoId===c.videoId&&current.start===c.start)return;current=c;play(c)},stop,resume(){off=false;if(current)play(current)}}})();
+
 /* live data: one static file refreshed by a single collector, so visitors never touch Naver */
-const API=new URLSearchParams(location.search).get('api')||'https://api.gohaeyaji.com/wiz';
+const API=new URLSearchParams(location.search).get('api')||'https://api.gohaeyaji.com/wiz';const kst=()=>new Date(Date.now()+9*36e5).toISOString().slice(0,10);
 const POLL_MS=10000,STALE_MS=120000;
 async function getState(){const c=new AbortController(),t=setTimeout(()=>c.abort(),7000);try{const r=await fetch(API+'/state.json',{signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json()}finally{clearTimeout(t)}}
 let demoTimer;
@@ -677,7 +692,7 @@ function applyLive(d){const g=d.game;
  const wasLive=live.gameLive;live.gameLive=g?.statusCode==='STARTED';fence.visible=live.gameLive;live.series=d.series||[];if(g?.statusCode==='RESULT'&&wasLive&&d.relay){const st=normalize(d.relay),my=live.teams.ktHome?st.home-st.away:st.away-st.home;if(my>0){shout('승리!');firework(T.kit.fx,T.gold,16);crowdBurst(1.3,8)}else if(my<0)crowdBurst(.03,4)}if(!g){stopDemo();live.takeover=null;live.imgbatter=live.imgpitcher=null;live.status='idle';live.state=null;live.lines=[];live.idle='오늘은 예정된 경기가 없습니다';live.label='경기 없음';live.boardTitle=`${T.title.join(' ')} 전광판`;$('mode').innerHTML='<b>경기 없음</b> 다음 경기를 기다리는 중입니다';renderHud();return POLL_MS*6}
  stopDemo();live.status='live';const ktHome=g.homeTeamCode===T.code;live.teams={home:g.homeTeamName,away:g.awayTeamName,ktHome,homeCode:g.homeTeamCode,awayCode:g.awayTeamCode};live.boardTitle=`${g.awayTeamName} : ${g.homeTeamName}`;
  const pre=/BEFORE|READY/.test(g.statusCode),done=g.statusCode==='RESULT',at=(g.gameDateTime||'').slice(11,16);
- live.label=pre?'경기 전':done?'경기 종료':undefined;live.idle=pre?`오늘 ${at} 시작, 선발 ${g.awayStarterName||'미정'} 대 ${g.homeStarterName||'미정'}`:done?'오늘 경기는 끝났습니다':null;
+ live.label=pre?'경기 전':done?'경기 종료':undefined;if(pre||done)Song.stop();live.idle=pre?`오늘 ${at} 시작, 선발 ${g.awayStarterName||'미정'} 대 ${g.homeStarterName||'미정'}`:done?'오늘 경기는 끝났습니다':null;
  if(pre){$('mode').innerHTML=`<b>${at} 시작</b> 경기가 열리면 자동으로 중계합니다`;void 0}
  else{$('mode').innerHTML=done?'<b>경기 종료</b> 최종 기록':'<b>실시간</b> 약 10초 지연';void 0}
  if(d.relay){const first=!live.state;live.first=first;applyState(normalize(d.relay),first)}else renderHud();
@@ -685,7 +700,11 @@ function applyLive(d){const g=d.game;
 async function poll(){let wait=POLL_MS;try{const d=await getState();if(Date.now()-d.checkedAt>STALE_MS)throw new Error('stale');wait=applyLive(d);live.fail=0}
  catch(e){live.fail=(live.fail||0)+1;wait=20000;if(live.status==='live')$('mode').innerHTML='<b>연결 재시도 중</b> 마지막 정보를 보여 드립니다';else startDemo()}
  setTimeout(poll,wait)}
-function boot(){live.status='connecting';poll()}
+/* anonymous usage counts: no identifier leaves the browser, only yes or no flags */
+function hit(e,extra=''){try{fetch(`${API}/hit?e=${e}${extra}`,{mode:'no-cors',keepalive:true}).catch(()=>{})}catch{}}
+function refSource(){const q=new URLSearchParams(location.search).get('utm_source');const h=q||(()=>{try{return new URL(document.referrer).hostname}catch{return ''}})();if(!h||/gohaeyaji|github\.io/.test(h))return'direct';for(const k of['instagram','kakao','naver','google','youtube'])if(h.includes(k)||(k==='youtube'&&h.includes('youtu.be')))return k;return'other'}
+function noteVisit(){const d=kst(),last=store.get('lastVisit',''),first=last!==d;store.set('lastVisit',d);hit('visit',`&d=${first?1:0}&r=${first&&last?1:0}&s=${refSource()}`)}
+function boot(){noteVisit();live.status='connecting';Song.refresh();setInterval(Song.refresh,60000);poll()}
 
 /* ---------- input ---------- */
 const keys={};addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;keys[e.code]=true;if(e.code==='Space'){e.preventDefault();startCheer()}if(e.code==='Escape')closeDrawer();if(e.code==='KeyU')toggleDrawer('ward');if(e.code==='KeyG')toggleDrawer('gear');if(e.code==='KeyT')toggleDrawer('seat');if(e.code==='KeyC')toggleDrawer('msg');if(e.code==='KeyX')toggleDrawer('act');if(e.code==='KeyB')toggleBoardView();if(e.code==='KeyM')$('soundBtn').click()});
@@ -718,9 +737,9 @@ function toggleDrawer(kind){const d=$('drawer');for(const[k,b]of[['ward','wardBt
  if(kind==='act'){$('drawerT').textContent='격한 응원';$('drawerS').textContent='근처 사람들에게도 보입니다.';ACTS.forEach((a,i)=>pick(a.n,a.s,null,false,()=>{act(i);closeDrawer()},'seat'));pick('벤치클리어링 난입','모집 인원이 차면 양 팀이 마운드로 달려 나옵니다',null,false,()=>{Bench.join();closeDrawer()},'seat')}
  if(kind==='seat'){$('drawerT').textContent='자리 이동';$('drawerS').textContent='구장 안의 자리로 이동하거나 내 응원 팀을 바꿀 수 있습니다.';SEATS.forEach(s=>pick(s.n,s.s,null,false,()=>{teleport(s);toggleDrawer('seat')},'seat'));const other=CH==='kt'?'samsung':'kt';pick(`${THEMES[other].name} 팬으로 변경`,'내 화면의 테마와 옷장이 바뀌고 입장 화면으로 돌아갑니다',null,false,()=>{store.set('channel',other);location.hash=other;location.reload()},'seat')}}
 const closeDrawer=()=>{if(drawer)toggleDrawer(drawer)};$('drawerClose').onclick=closeDrawer;$('wardBtn').onclick=()=>toggleDrawer('ward');$('gearBtn').onclick=()=>toggleDrawer('gear');$('seatBtn').onclick=()=>toggleDrawer('seat');$('msgBtn').onclick=()=>toggleDrawer('msg');$('benchJoin').onclick=()=>Bench.join();$('actBtn').onclick=()=>toggleDrawer('act');$('boardBtn').onclick=toggleBoardView;
-$('soundBtn').onclick=()=>{const on=Audio_.toggle();$('soundBtn').firstChild.nodeValue=on?'소리 끔':'소리 켬'};
+$('soundBtn').onclick=()=>{const on=Audio_.toggle();if(on)Song.resume();else Song.stop();$('soundBtn').firstChild.nodeValue=on?'소리 끔':'소리 켬'};
 $('nick').value=me.nick;$('nick').placeholder=T.nick;$('titleA').textContent=T.title[0];$('titleB').textContent=T.title[1];$('gateInfo').textContent=T.info;document.title=T.title.join(' ');for(const[id,ch]of[['pickKt','kt'],['pickSs','samsung']]){const b=$(id);b.setAttribute('aria-pressed',CH===ch);b.onclick=()=>{if(CH===ch)return;store.set('channel',ch);location.hash=ch;location.reload()}}document.body.classList.add('gated');
-$('enter').onclick=()=>{me.nick=$('nick').value.trim().slice(0,8);store.set('nick',me.nick);dress(hero,me.u,me.num,me.nick||T.nick.slice(0,2));$('gate').classList.add('off');document.body.classList.remove('gated');Net.connect();setTimeout(()=>$('gate').hidden=true,520);if(!Audio_.on)$('soundBtn').click();teleport(SEATS[0]);nav.pitch=.12};
+$('enter').onclick=()=>{me.nick=$('nick').value.trim().slice(0,8);store.set('nick',me.nick);dress(hero,me.u,me.num,me.nick||T.nick.slice(0,2));$('gate').classList.add('off');document.body.classList.remove('gated');Net.connect();hit('enter');setTimeout(()=>$('gate').hidden=true,520);if(!Audio_.on)$('soundBtn').click();teleport(SEATS[0]);nav.pitch=.12};
 
 /* ---------- gear motion and audio ---------- */
 function animateCheer(dt,t){const c=hero,g=me.gear,F=nav.cheer;const beat=t*(g==='flag'||g==='towel'?5:9);const s=Math.sin(beat),ax=-2.75;
