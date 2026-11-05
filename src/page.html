@@ -539,8 +539,15 @@ let held=null;function equip(id){me.gear=id;store.set('gear',id);Net?.look();if(
 equip(me.gear);
 function wear(u){me.u=u;store.set('uniform-'+CH,u.id);Net?.look();dress(hero,u,me.num,me.nick||T.nick.slice(0,2));FX.emit(hero.position.x,hero.position.y+1.2,hero.position.z,u.trim,40,4,.7,.4);Audio_.chime()}
 const nav={target:null,yaw:0,pitch:.12,dist:innerHeight>innerWidth?10.5:8.5,vy:0,y:0,walk:0,cheer:0,cheerHold:false,tapT:0,closeup:0};const NAV_HOME={pitch:nav.pitch,dist:nav.dist};
+/* the field opens only between innings while a game is on */
+let breakUntil=0;const fenceOpen=()=>!fence.visible||(DEMO?Game.rest:Date.now()<breakUntil);
+function noteBreak(prev,st){if(DEMO)return;if(st.o>=3||(prev&&(prev.inn!==st.inn||prev.top!==st.top)))breakUntil=Date.now()+90000;else if(st.b+st.s>0)breakUntil=0}
+let wasOpen=true;function watchFence(){const open=fenceOpen(),onField=nearestRing(hero.position.x,hero.position.z).d<=.15;
+ if(fence.visible&&open&&!wasOpen)showBubble(hero,'쉬는 시간! 필드에 들어갈 수 있어요');
+ if(!open&&wasOpen&&onField&&!nav.bench)showBubble(hero,'경기 재개! 관중석으로!');wasOpen=open;
+ if(!open&&onField&&!nav.bench&&!nav.climb&&(!nav.target||nearestRing(nav.target.x,nav.target.z).d<=.15)&&!(keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight)){const n=nearestRing(hero.position.x,hero.position.z),x=hero.position.x+n.r.n.x*(3-n.d),z=hero.position.z+n.r.n.z*(3-n.d);nav.target={x,z};nav.fixedY=null}}
 function facePlay(){const a=Math.atan2(0-hero.position.x,45-hero.position.z);hero.rotation.y=a;nav.yaw=a+Math.PI;nav.pitch=NAV_HOME.pitch;nav.dist=NAV_HOME.dist;nav.snap=true}
-function teleport(seat){if(seat.field&&fence.visible&&!seat.y){showBubble(hero,'경기 중! 펜스를 넘어가요');return}let x,z,y=null;if(seat.field){[x,z]=seat.field;y=seat.y??null}else{const sa=seat.team?(CH==='kt'?-1:1)*Math.PI*.3:seat.a;const best=ring.reduce((a,r)=>{const q=Math.abs(wrap(r.ang-sa));return q<a.q?{q,r}:a},{q:9,r:ring[0]}).r;const p=best.p.clone().addScaledVector(best.n,seat.d);x=p.x;z=p.z}
+function teleport(seat){if(seat.field&&!fenceOpen()&&!seat.y){showBubble(hero,'경기 중엔 필드에 못 들어가요');return}let x,z,y=null;if(seat.field){[x,z]=seat.field;y=seat.y??null}else{const sa=seat.team?(CH==='kt'?-1:1)*Math.PI*.3:seat.a;const best=ring.reduce((a,r)=>{const q=Math.abs(wrap(r.ang-sa));return q<a.q?{q,r}:a},{q:9,r:ring[0]}).r;const p=best.p.clone().addScaledVector(best.n,seat.d);x=p.x;z=p.z}
  FX.emit(hero.position.x,hero.position.y+1,hero.position.z,'#a678ff',60,6,.8,.5);hero.position.set(x,y??0,z);nav.y=y??groundAt(x,z);nav.fixedY=y;
  const toField=Math.atan2(0-x,150-z);hero.rotation.y=toField;nav.yaw=toField+Math.PI;nav.target=null;marker.visible=false;FX.emit(x,nav.y+1,z,'#ffc861',60,6,.9,.5);shock(x,nav.y+.1,z,'#ffc861',3);Audio_.chime();nav.snap=true}
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
@@ -587,7 +594,7 @@ const live={teams:{home:'KT',away:'삼성',ktHome:CH==='kt',homeCode:'KT',awayCo
 const teamU=side=>{const kt=live.teams.ktHome?side==='home':side==='away';return kt?U(side==='home'?T.homeKit:T.awayKit):(side==='home'?T.oppHome:T.oppAway)};
 function applyState(st,silent){if(!st)return;const prev=live.state;live.state=st;
  /* new plays */
- const fresh=st.plays.filter(p=>!live.seen.has(p.id));fresh.forEach(p=>live.seen.add(p.id));
+ noteBreak(prev,st);const fresh=st.plays.filter(p=>!live.seen.has(p.id));fresh.forEach(p=>live.seen.add(p.id));
  if(silent){live.lines=[];st.plays.slice(-12).forEach(p=>addFeed(p.text))}else fresh.forEach(p=>{addFeed(p.text);if(!live.first)onPlay(p,st)});
  const ktBat=(st.top?'away':'home')===(live.teams.ktHome?'home':'away');
  if(prev&&!silent){const ktNow=live.teams.ktHome?st.home:st.away,ktWas=live.teams.ktHome?prev.home:prev.away,opNow=live.teams.ktHome?st.away:st.home,opWas=live.teams.ktHome?prev.away:prev.home;
@@ -709,7 +716,7 @@ async function poll(){let wait=POLL_MS;try{const d=await getState();if(Date.now(
  setTimeout(poll,wait)}
 /* ---------- demo only: characters replay a game on the field, from recorded plays or a sample ---------- */
 const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4],2:[0,-1.5],3:[-16.5,24],4:[-8,33],5:[16.5,24],6:[8,33],7:[33,62],8:[0,80],9:[-33,62]},LAND={lf:[34,58],lc:[18,76],cf:[0,86],rc:[-18,76],rf:[-34,58]},DUG={home:[-23,13],away:[23,13]},COVER={3:1,4:2,6:2,5:3,2:0,1:1},POSN={1:'투수',2:'포수',3:'1루수',4:'2루수',5:'3루수',6:'유격수',7:'좌익수',8:'중견수',9:'우익수'},LABEL={hr:'홈런',triple:'3루타',double:'2루타',single:'안타',k:'삼진 아웃',bb:'볼넷',hbp:'몸에 맞는 공',error:'실책',fc:'야수선택',bunt:'번트 아웃',ground:'땅볼 아웃',fly:'뜬공 아웃',line:'직선타 아웃',dp:'병살타'},WORD={B:'볼',S:'스트라이크',F:'파울',W:'헛스윙',X:'타격'};
- let on=false,cam=false,stay=false,idle=0,actors=new Set(),timers=[],flight=null,team={},D=null,batter=null,bases=[null,null,null,null],lineup={home:{},away:{}},S,focus=new THREE.Vector3(0,1,18),frame=0;
+ let on=false,rest=false,cam=false,stay=false,idle=0,actors=new Set(),timers=[],flight=null,team={},D=null,batter=null,bases=[null,null,null,null],lineup={home:{},away:{}},S,focus=new THREE.Vector3(0,1,18),frame=0;
  const ball=new THREE.Mesh(new THREE.SphereGeometry(.2,14,10),glow(0xffffff));ball.visible=false;scene.add(ball);
  const fresh=()=>({inn:1,top:true,home:0,away:0,hH:0,aH:0,hE:0,aE:0,b:0,s:0,o:0,lines:{home:{},away:{}},plays:[],n:0,batter:null,pitcher:null});
  const spawn=(u,num,name,head)=>{const c=makeChibi({u,num,name,key:name+num,look:LOOKS[name],headgear:head});c.scale.setScalar(1.42);scene.add(c);const a={c,to:null,sp:9,done:null,phase:rand(6),over:null,ot:0,od:0,odone:null,ready:false,gear:null};actors.add(a);return a};
@@ -773,7 +780,7 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
   for(const q of e.mid||[]){const r=bases[q.from];if(!r)continue;bases[q.from]=null;if(q.to>0&&q.to<4)bases[q.to]=r;if(q.to===0)S.o++;await go(r,q.from,q.to,10);push()}
   if(e.res)await result(e);else{toDugout(a);batter=null}
   if(actors.has(a))a.bat=false;home();await wait(1.1)};
- const change=async e=>{await wait(.8);for(let b=1;b<=3;b++)if(bases[b]){toDugout(bases[b]);bases[b]=null}await leaveField();S.inn=e.inn;S.top=e.top;S.o=S.b=S.s=0;push();await takeField(def(S));await wait(.6)};
+ const change=async e=>{await wait(.8);rest=true;for(let b=1;b<=3;b++)if(bases[b]){toDugout(bases[b]);bases[b]=null}await leaveField();S.inn=e.inn;S.top=e.top;S.o=S.b=S.s=0;push();await wait(12);rest=false;await takeField(def(S));await wait(.6)};
  const play=async events=>{for(;;){S=fresh();live.seen.clear();live.last={};live.first=true;live.lines=[];S.inn=events[0].inn;S.top=events[0].top;await takeField(def(S));for(const e of events){if(e.inn!==S.inn||e.top!==S.top)await change(e);await pa(e)}await wait(2);say('경기 재연이 끝났습니다');push();await wait(5);await leaveField();for(let b=1;b<=3;b++)if(bases[b]){drop(bases[b]);bases[b]=null}}};
  const SAMPLE=(()=>{const L={home:{batter:['황재균','김상수','로하스','강백호','장성우','배정대','오윤석','문상철','심우준'].map((n,i)=>({pcode:'h'+i,name:n,posName:'',batOrder:i+1})),pitcher:[{pcode:'hp',name:'고영표'}]},away:{batter:['김지찬','윤정빈','구자욱','디아즈','강민호','김영웅','이재현','류지혁','박병호'].map((n,i)=>({pcode:'a'+i,name:n,posName:'',batOrder:i+1})),pitcher:[{pcode:'ap',name:'원태인'}]}};
   const E=(inn,top,order,pitches,type,field=0,dir=null,more={})=>({inn,top,order,batter:(top?L.away:L.home).batter[order-1].name,pitcher:'',pitches:[...pitches],mid:[],res:{type,field,relay:[],dir,foul:false,sac:false,to:null,...(more.res||{})},runners:more.runners||[]});
@@ -794,7 +801,7 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
  const setCam=v=>{if(cam===v)return;cam=v;if(!v)nav.snap=true;label()};
  /* moving shows your character, standing still returns to the game, unless V asked to stay */
  const follow=(dt,busy)=>{if(!on)return;const now=performance.now();if(busy){idle=now;setCam(false);return}if(!stay&&!cam&&now-idle>3500)setCam(true)};
- return{start,step,follow,get cam(){return on&&cam},toggle(){stay=cam;idle=performance.now();setCam(!cam)},focus,on:()=>on,get S(){return S},get actors(){return actors}}})();
+ return{start,step,follow,get rest(){return rest},get cam(){return on&&cam},toggle(){stay=cam;idle=performance.now();setCam(!cam)},focus,on:()=>on,get S(){return S},get actors(){return actors}}})();
 
 /* anonymous usage counts: no identifier leaves the browser, only yes or no flags */
 function hit(e,extra=''){try{fetch(`${API}/hit?e=${e}${extra}`,{mode:'no-cors',keepalive:true}).catch(()=>{})}catch{}}
@@ -895,11 +902,12 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/10
  /* movement */
  const ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0),iz=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0);let len=Math.hypot(ix,iz);if(len>.08){nav.target=null;marker.visible=false}
  const tg=nav.target,tdx=tg?tg.x-hero.position.x:0,tdz=tg?tg.z-hero.position.z:0,tdist=Math.hypot(tdx,tdz);if(tg&&tdist<.3){nav.target=null;marker.visible=false}else if(tg)len=1;marker.scale.setScalar(1+Math.sin(t*5)*.14);
- if(nav.climb){const c=nav.climb;c.t+=dt/2.6;const k=Math.min(c.t,1),up=k<.7?k/.7:1,side=k<.55?0:(k-.55)/.45;hero.position.x=lerp(c.from.x,c.to.x,side);hero.position.z=lerp(c.from.z,c.to.z,side);nav.fixedY=k<.7?lerp(c.from.y,c.top,up):lerp(c.top,groundAt(c.to.x,c.to.z),(k-.7)/.3);hero.armR.p.rotation.set(-2.8+Math.sin(t*12)*.5,0,0);hero.armL.p.rotation.set(-2.8-Math.sin(t*12)*.5,0,0);if(k>=1){nav.climb=null;nav.fixedY=null;if(nearestRing(hero.position.x,hero.position.z).d>.15)facePlay()}}
+ if(nav.climb?.hang){const c=nav.climb;let back=fenceOpen()?false:null;if(!fenceOpen()){const r=nearestRing(hero.position.x,hero.position.z).r;if(tg&&nearestRing(tg.x,tg.z).d>.15)back=true;else if(!tg&&len>.08){const a=nav.yaw+Math.atan2(ix,iz);if(Math.sin(a)*r.n.x+Math.cos(a)*r.n.z>0)back=true}}if(back===false)c.hang=false;else if(back){c.hang=false;c.to=c.from.clone()}}
+ if(nav.climb){const c=nav.climb;c.t=c.hang?Math.min(c.t+dt/2.6,.54):c.t+dt/2.6;const k=Math.min(c.t,1),up=k<.7?k/.7:1,side=k<.55?0:(k-.55)/.45;hero.position.x=lerp(c.from.x,c.to.x,side);hero.position.z=lerp(c.from.z,c.to.z,side);nav.fixedY=k<.7?lerp(c.from.y,c.top,up):lerp(c.top,groundAt(c.to.x,c.to.z),(k-.7)/.3);hero.armR.p.rotation.set(-2.8+Math.sin(t*12)*.5,0,0);hero.armL.p.rotation.set(-2.8-Math.sin(t*12)*.5,0,0);if(k>=1){nav.climb=null;nav.fixedY=null;if(nearestRing(hero.position.x,hero.position.z).d>.15)facePlay()}}
  else if(nav.bench){}
  else if(len>.08&&$('gate').classList.contains('off')){const sp=(keys.ShiftLeft||keys.ShiftRight||tdist>22?11:7)*Math.min(len,1),a=tg?Math.atan2(tdx,tdz):nav.yaw+Math.atan2(ix,iz);const vx=Math.sin(a+Math.PI*0)*sp,vz=Math.cos(a)*sp;
   let step=tg?Math.min(1,tdist/(sp*dt+1e-4)):1,nx=hero.position.x+vx*dt*step,nz=hero.position.z+vz*dt*step;const n=nearestRing(nx,nz);if(n.d>TOTAL-.5){nx-=n.r.n.x*(n.d-TOTAL+.5);nz-=n.r.n.z*(n.d-TOTAL+.5)}
-  if(fence.visible){const o=nearestRing(hero.position.x,hero.position.z);if((o.d>.15)!==(n.d>.15)){const out=o.d>.15?-1.4:1.2;nav.climb={t:0,from:hero.position.clone(),to:new THREE.Vector3(nx+n.r.n.x*(out-n.d),0,nz+n.r.n.z*(out-n.d)),top:lerp(4,1.5,n.r.w)+4.8};showBubble(hero,o.d>.15?'영차영차!':'다시 관중석으로!');nx=hero.position.x;nz=hero.position.z}}
+  if(fence.visible){const o=nearestRing(hero.position.x,hero.position.z);if((o.d>.15)!==(n.d>.15)){const out=o.d>.15?-1.4:1.2;nav.climb={t:0,from:hero.position.clone(),to:new THREE.Vector3(nx+n.r.n.x*(out-n.d),0,nz+n.r.n.z*(out-n.d)),top:lerp(4,1.5,n.r.w)+4.8,hang:o.d>.15&&!fenceOpen()};showBubble(hero,nav.climb.hang?'경기 중엔 못 들어가요! 매달려서 응원!':o.d>.15?'영차영차!':'다시 관중석으로!');nx=hero.position.x;nz=hero.position.z}}
   hero.position.x=nx;hero.position.z=nz;nav.fixedY=null;hero.rotation.y+=wrap(a-hero.rotation.y)*Math.min(1,dt*12);nav.walk+=dt*sp*1.7}else nav.walk*=.9;
  const gy=nav.fixedY??groundAt(hero.position.x,hero.position.z);nav.y=lerp(nav.y,gy,Math.min(1,dt*(gy>nav.y?14:10)));hero.position.y=nav.y;
  blob.position.set(hero.position.x,gy+.03,hero.position.z);
@@ -910,7 +918,7 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/10
  {const on=stepAct(hero,dt,t,hero.root,hero.head.children[0]);if(on&&hero.userData.act&&[1,2].includes(hero.userData.act.i)){hero.armR.p.rotation.set(-.2,0,-2.3);hero.armL.p.rotation.set(-.2,0,2.3)}else if(!on)hero.root.position.x=0}
  hero.mouth.scale.y=nav.cheer>.01||hero.userData.act?1.9:1;hero.head.rotation.z=nav.cheer>.01?Math.sin(t*9)*.07:0;
  sun.position.set(hero.position.x+30,hero.position.y+78,hero.position.z-22);sun.target.position.copy(hero.position);
- Game.follow(dt,moving||!!nav.climb||nav.cheer>.01);
+ watchFence();Game.follow(dt,moving||(!!nav.climb&&!nav.climb.hang)||nav.cheer>.01);
  /* camera */
  const cl=nav.closeup&&!moving;const portraitView=innerHeight>innerWidth,dist=cl?(portraitView?7.6:5.2):nav.dist,py=cl?.12:nav.pitch,yaw=cl?hero.rotation.y+.42+Math.sin(t*.5)*.26:nav.yaw;
  const want=new THREE.Vector3(hero.position.x+Math.sin(yaw)*Math.cos(py)*-(-dist),0,0);want.x=hero.position.x-Math.sin(yaw+Math.PI)*Math.cos(py)*dist;want.y=hero.position.y+1.7+Math.sin(py)*dist;want.z=hero.position.z-Math.cos(yaw+Math.PI)*Math.cos(py)*dist;
