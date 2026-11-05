@@ -64,6 +64,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 .tabs{grid-column:1/-1;display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;min-height:40px;box-sizing:border-box}
 .tab{flex:none;padding:6px 10px;border-radius:99px;font-size:12px;background:#ffffff14;min-height:32px}
 .tab[aria-pressed=true]{background:var(--kt-red);font-weight:700}
+.teamTabs .tab{flex:1;font-size:13px;font-weight:700;min-height:36px}
 #grid .note{grid-column:1/-1;padding:4px 2px;font-size:11px}
 .pick.seat{align-items:flex-start;text-align:left;padding:9px;grid-column:span 3}
 
@@ -445,7 +446,7 @@ function drawJersey(x,S2,u,num,name){const W=S2,H=S2;x.fillStyle=u.body;x.fillRe
   pipe(){x.fillStyle=u.trim;x.fillRect(W*.495,0,W*.012,H)}}[u.p];pat&&pat();x.restore();
  if(!u.noFront){x.fillStyle=u.trim;x.fillRect(W*.495,H*.1,W*.01,H*.8);for(let i=0;i<6;i++){x.fillStyle=u.body==='#f6f4ef'?'#c9c5bb':'#ffffff99';x.beginPath();x.arc(W*.525,H*(.16+i*.13),W*.007,0,6.3);x.fill()}x.strokeStyle=u.trim;x.lineWidth=W*.012;x.beginPath();x.moveTo(W*.41,0);x.lineTo(W*.5,H*.12);x.lineTo(W*.59,0);x.stroke();x.lineWidth=W*.006;for(const c of[.25,.75]){x.beginPath();x.moveTo(W*c,H*.05);x.lineTo(W*c,H*.9);x.stroke()}}
  x.textAlign='center';x.textBaseline='middle';x.fillStyle=u.text;x.font=`${W*.1}px "Black Han Sans",sans-serif`;
- if(!u.noFront){if(u.iri){const g=x.createLinearGradient(W*.38,0,W*.62,0);['#ff9de2','#9de8ff','#c9ffc4','#ffe59d'].forEach((c,i)=>g.addColorStop(i/3,c));x.fillStyle=g}x.font=`${W*((u.chest||T.chest).length>4?.062:.1)}px "Black Han Sans",sans-serif`;x.fillText(u.chest||T.chest,W*.5,H*.36);x.fillStyle=u.text;if(u.bigNum&&num!==''){x.font=`${W*.13}px "Black Han Sans",sans-serif`;x.fillText(num,W*.42,H*.54);x.font=`${W*.085}px "Black Han Sans",sans-serif`}else if(num!==''&&!u.bigNum){x.font=`${W*.085}px "Black Han Sans",sans-serif`;x.fillText(num,W*.56,H*.56)}}
+ if(!u.noFront){if(u.iri){const g=x.createLinearGradient(W*.38,0,W*.62,0);['#ff9de2','#9de8ff','#c9ffc4','#ffe59d'].forEach((c,i)=>g.addColorStop(i/3,c));x.fillStyle=g}x.font=`${W*((u.chest||'SUWON').length>4?.062:.1)}px "Black Han Sans",sans-serif`;x.fillText(u.chest||(isSS(u.id)?'DAEGU':'SUWON'),W*.5,H*.36);x.fillStyle=u.text;if(u.bigNum&&num!==''){x.font=`${W*.13}px "Black Han Sans",sans-serif`;x.fillText(num,W*.42,H*.54);x.font=`${W*.085}px "Black Han Sans",sans-serif`}else if(num!==''&&!u.bigNum){x.font=`${W*.085}px "Black Han Sans",sans-serif`;x.fillText(num,W*.56,H*.56)}}
  for(const bx of[0,W]){x.font=`${W*.07}px "Black Han Sans",sans-serif`;x.fillText(name||'',bx,H*.24);x.font=`${W*.2}px "Black Han Sans",sans-serif`;x.fillText(num,bx,H*.5);if(u.back){x.font=`${W*.04}px "Black Han Sans",sans-serif`;x.fillText(u.back,bx,H*.68)}}
  if(!u.noFront){x.fillStyle=u.trim;x.fillRect(0,H*.9,W,H*.03)}}
 
@@ -527,7 +528,7 @@ const Audio_=(()=>{let ctx,master,crowd,on=false;
   chime(){if(!on)return;[660,880,1175].forEach((f,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.value=f;const t=ctx.currentTime+i*.07;g.gain.setValueAtTime(.13,t);g.gain.exponentialRampToValueAtTime(.001,t+.45);o.connect(g).connect(master);o.start(t);o.stop(t+.5)})}}})();
 
 /* ---------- player ---------- */
-const me={u:U(store.get('uniform-'+CH,T.homeKit)),gear:GEARS.some(g=>g.id===store.get('gear','wizbat'))?store.get('gear','wizbat'):'wizbat',nick:store.get('nick',''),num:String(10+hash(Math.random())%89)};
+const me={u:UA(store.get('uniform-'+CH,T.homeKit)),gear:GEARS.some(g=>g.id===store.get('gear','wizbat'))?store.get('gear','wizbat'):'wizbat',nick:store.get('nick',''),num:String(10+hash(Math.random())%89)};
 const hero=makeChibi({u:me.u,num:store.get('num',me.num),name:me.nick||T.nick.slice(0,2),key:'hero'});me.num=store.get('num',me.num);store.set('num',me.num);
 hero.scale.setScalar(1.42);scene.add(hero);
 const blob=new THREE.Mesh(new THREE.CircleGeometry(.55,20),new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.28,depthWrite:false}));blob.rotation.x=-Math.PI/2;scene.add(blob);
@@ -679,11 +680,11 @@ const Song=(()=>{let list=new Map(),yt=null,ready=false,current=null,off=false,l
  const stop=()=>{current=null;box.hidden=true;if(ready)yt.stopVideo()};
  $('songOff').onclick=()=>{off=true;stop()};
  return{async refresh(){try{const r=await fetch(API+'/cheers.json');if(!r.ok)return;const d=await r.json();list=new Map(d.cheers.map(c=>[c.team+':'+c.name,c]))}catch{}},
-  batter(code,name){if(live.status!=='live'){return}const c=list.get(code+':'+name);if(!c){stop();return}if(current?.videoId===c.videoId&&current.start===c.start)return;current=c;play(c)},stop,resume(){off=false;if(current)play(current)}}})();
+  batter(code,name){if(live.status!=='live'&&!DEMO){return}const c=list.get(code+':'+name);if(!c){stop();return}if(current?.videoId===c.videoId&&current.start===c.start)return;current=c;play(c)},stop,resume(){off=false;if(current)play(current)}}})();
 
 /* live data: one static file refreshed by a single collector, so visitors never touch Naver */
 const API=new URLSearchParams(location.search).get('api')||'https://api.gohaeyaji.com/wiz';const kst=()=>new Date(Date.now()+9*36e5).toISOString().slice(0,10);
-const POLL_MS=10000,STALE_MS=120000;
+const DEMO=new URLSearchParams(location.search).has('demo'),POLL_MS=10000,STALE_MS=120000;
 async function getState(){const c=new AbortController(),t=setTimeout(()=>c.abort(),7000);try{const r=await fetch(API+'/state.json',{signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json()}finally{clearTimeout(t)}}
 let demoTimer;
 function startDemo(mode){if(live.status==='demo'&&demoTimer)return;live.status='demo';fence.visible=true;$('mode').innerHTML=mode||'<b>시연 장면</b> 실제 중계가 아니며 점수와 순서는 꾸민 내용입니다';live.boardTitle='시연 장면 (실제 중계 아님)';live.first=true;Demo.step();demoTimer=setInterval(Demo.step,3400)}
@@ -704,7 +705,7 @@ async function poll(){let wait=POLL_MS;try{const d=await getState();if(Date.now(
 function hit(e,extra=''){try{fetch(`${API}/hit?e=${e}${extra}`,{mode:'no-cors',keepalive:true}).catch(()=>{})}catch{}}
 function refSource(){const q=new URLSearchParams(location.search).get('utm_source');const h=q||(()=>{try{return new URL(document.referrer).hostname}catch{return ''}})();if(!h||/gohaeyaji|github\.io/.test(h))return'direct';for(const k of['instagram','kakao','naver','google','youtube'])if(h.includes(k)||(k==='youtube'&&h.includes('youtu.be')))return k;return'other'}
 function noteVisit(){const d=kst(),last=store.get('lastVisit',''),first=last!==d;store.set('lastVisit',d);hit('visit',`&d=${first?1:0}&r=${first&&last?1:0}&s=${refSource()}`)}
-function boot(){noteVisit();live.status='connecting';Song.refresh();setInterval(Song.refresh,60000);poll()}
+function boot(){noteVisit();Song.refresh();setInterval(Song.refresh,60000);if(DEMO){startDemo('<b>선수 등장 시험</b> 실제 중계가 아니며 꾸민 장면입니다');return}live.status='connecting';poll()}
 
 /* ---------- input ---------- */
 const keys={};addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;keys[e.code]=true;if(e.code==='Space'){e.preventDefault();startCheer()}if(e.code==='Escape')closeDrawer();if(e.code==='KeyU')toggleDrawer('ward');if(e.code==='KeyG')toggleDrawer('gear');if(e.code==='KeyT')toggleDrawer('seat');if(e.code==='KeyC')toggleDrawer('msg');if(e.code==='KeyX')toggleDrawer('act');if(e.code==='KeyB')toggleBoardView();if(e.code==='KeyM')$('soundBtn').click()});
@@ -723,15 +724,15 @@ function startCheer(){nav.cheer=1;nav.cheerHold=true;nav.tapT=0}
 const cheerBtn=$('cheer');cheerBtn.addEventListener('pointerdown',e=>{e.preventDefault();startCheer()});for(const ev of['pointerup','pointerleave','pointercancel'])cheerBtn.addEventListener(ev,()=>nav.cheerHold=false);cheerBtn.addEventListener('keydown',e=>{if(e.key==='Enter')startCheer()});
 
 /* drawer */
-let drawer=null,drawerCat='all';const swatch=(u)=>{const[c,x]=canvasOf(128,128);drawJersey(x,128,u,'','');x.fillStyle=u.sleeve;x.fillRect(0,0,20,128);x.fillRect(108,0,20,128);c.setAttribute('aria-hidden','true');return c};
+let drawer=null,drawerCat='all',drawerTeam=CH;const swatch=(u)=>{const[c,x]=canvasOf(128,128);drawJersey(x,128,u,'','');x.fillStyle=u.sleeve;x.fillRect(0,0,20,128);x.fillRect(108,0,20,128);c.setAttribute('aria-hidden','true');return c};
 const gearIcon=id=>{const K=T.kit;const[c,x]=canvasOf(128,128);x.fillStyle='#ffffff10';x.fillRect(0,0,128,128);x.save();x.translate(64,64);x.lineCap='round';const line=(col,w,a,b,d,e)=>{x.strokeStyle=col;x.lineWidth=w;x.beginPath();x.moveTo(a,b);x.lineTo(d,e);x.stroke()};
  ({none(){x.fillStyle='#f6d2b4';x.beginPath();x.arc(-12,0,18,0,6.3);x.arc(14,0,18,0,6.3);x.fill()},balloon(){line(K.a,15,-16,38,-4,-38);line(K.a,15,18,38,8,-38)},clapper(){x.fillStyle=K.c;x.rotate(.25);x.fillRect(-16,-38,14,76);x.fillStyle=K.a;x.fillRect(4,-38,14,76)},towel(){x.fillStyle=K.a;x.fillRect(-42,-15,84,30);x.fillStyle='#fff';x.fillRect(-42,-15,84,5)},muffler(){for(let i=-4;i<4;i++){x.fillStyle=i%2?K.a:K.b;x.fillRect(i*11,-11,11,22)}},flag(){x.save();x.translate(-24,-44);x.scale(.5,.5);K.flag(x);x.restore();line('#ddd',5,-24,44,-24,-44)},led(){line(K.fx,12,0,38,0,-36);line('#fff',3,0,28,0,-30)},wizbat(){line(T.batColor[0],12,-30,34,-6,-36);line(T.batColor[0],12,30,34,6,-36);line(K.a,12,-13,-16,-11,-11);line(K.a,12,13,-16,11,-11);line(T.batColor[2],12,-16,-7,-14,-2);line(T.batColor[2],12,16,-7,14,-2)},pom(){for(let i=0;i<30;i++)line(i%3?K.a:K.c,4,0,0,Math.cos(i)*32,Math.sin(i)*32)},wand(){line('#6a4630',6,-24,36,18,-20);x.fillStyle='#ffd98c';x.font='40px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('✦',26,-28)}})[id]();x.restore();return c};
 function toggleDrawer(kind){const d=$('drawer');for(const[k,b]of[['ward','wardBtn'],['gear','gearBtn'],['seat','seatBtn'],['msg','msgBtn'],['act','actBtn']])$(b).setAttribute('aria-expanded',k===kind&&drawer!==kind);if(drawer===kind){drawer=null;d.hidden=true;nav.closeup=0;return}drawer=kind;d.hidden=false;const G=$('grid');G.textContent='';
  const pick=(label,small,node,on,fn,cls='')=>{const b=document.createElement('button');b.className='pick '+cls;b.setAttribute('aria-pressed',on);if(node)b.append(node);const t=document.createElement('span');t.textContent=label;const s=document.createElement('small');s.textContent=small;b.append(t,s);b.onclick=()=>{fn();G.querySelectorAll('.pick').forEach(p=>p.setAttribute('aria-pressed',p===b));};G.append(b)};
  if(kind==='ward'){$('drawerT').textContent='유니폼 옷장';$('drawerS').textContent=`${UNIFORMS.length}벌. 사진이 아니라 기사와 상품명의 글 설명으로 만든 재해석입니다. 배색은 실제와 다를 수 있습니다.`;nav.closeup=1;
-  const show=cat=>{drawerCat=cat;G.textContent='';const tabs=document.createElement('div');tabs.className='tabs';UNIFORM_CATS.filter(([id])=>id==='all'||UNIFORMS.some(u=>u.c===id)).forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.className='tab';b.setAttribute('aria-pressed',id===cat);b.onclick=()=>show(id);tabs.append(b)});G.append(tabs);
-   UNIFORMS.filter(u=>cat==='all'||u.c===cat).forEach(u=>pick(u.n,u.e?u.t:`${u.t}, 색 일부 추정`,swatch(u),u===me.u,()=>wear(u)));
-   if(cat==='home'||cat==='jeongjo'){const n=document.createElement('p');n.className='note';n.textContent=cat==='home'?'2015~2019년과 2021, 2022년의 연도별 홈, 원정은 자료가 없어 넣지 않았습니다.':'2018, 2019년은 디자인 자료가 없어 넣지 않았습니다.';G.append(n)}};show(drawerCat)}
+  const show=cat=>{drawerCat=cat;G.textContent='';const pool=drawerTeam==='samsung'?SS_UNIFORMS:KT_UNIFORMS;if(cat!=='all'&&!pool.some(u=>u.c===cat))cat=drawerCat='all';$('drawerS').textContent=`KT ${KT_UNIFORMS.length}벌, 삼성 ${SS_UNIFORMS.length}벌. 글 자료를 바탕으로 재해석해 실제와 다를 수 있습니다.`;const teams=document.createElement('div');teams.className='tabs teamTabs';[['kt','KT 위즈'],['samsung','삼성 라이온즈']].forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.className='tab';b.setAttribute('aria-pressed',id===drawerTeam);b.onclick=()=>{drawerTeam=id;show('all')};teams.append(b)});G.append(teams);const tabs=document.createElement('div');tabs.className='tabs';UNIFORM_CATS.filter(([id])=>id==='all'||pool.some(u=>u.c===id)).forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.className='tab';b.setAttribute('aria-pressed',id===cat);b.onclick=()=>show(id);tabs.append(b)});G.append(tabs);
+   pool.filter(u=>cat==='all'||u.c===cat).forEach(u=>pick(u.n,u.e?u.t:`${u.t}, 색 일부 추정`,swatch(u),u===me.u,()=>wear(u)));
+   if(drawerTeam==='kt'&&(cat==='home'||cat==='jeongjo')){const n=document.createElement('p');n.className='note';n.textContent=cat==='home'?'2015~2019년과 2021, 2022년의 연도별 홈, 원정은 자료가 없어 넣지 않았습니다.':'2018, 2019년은 디자인 자료가 없어 넣지 않았습니다.';G.append(n)}};show(drawerCat)}
  if(kind==='gear'){$('drawerT').textContent='응원도구';$('drawerS').textContent='고른 뒤 응원 버튼을 누르거나 Space를 누르고 있으세요.';GEARS.forEach(g=>pick(g.n,g.s,gearIcon(g.id),g.id===me.gear,()=>{equip(g.id);startCheer();nav.cheerHold=false}))}
  if(kind==='msg'){$('drawerT').textContent='응원 메시지';$('drawerS').textContent='누르면 내 캐릭터 위 말풍선으로 나오고 근처 사람들에게 보입니다.';T.msgs.forEach((m,i)=>pick(m,'',null,false,()=>{say(i);closeDrawer()},'seat'))}
  if(kind==='act'){$('drawerT').textContent='격한 응원';$('drawerS').textContent='근처 사람들에게도 보입니다.';ACTS.forEach((a,i)=>pick(a.n,a.s,null,false,()=>{act(i);closeDrawer()},'seat'));pick('벤치클리어링 난입','모집 인원이 차면 양 팀이 마운드로 달려 나옵니다',null,false,()=>{Bench.join();closeDrawer()},'seat')}
