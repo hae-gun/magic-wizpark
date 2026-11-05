@@ -36,7 +36,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #mode{top:calc(62px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);font-size:12px;padding:3px 10px;border-radius:99px;background:#0009;color:var(--dim);white-space:nowrap}
 #online{top:calc(14px + env(safe-area-inset-top,0px));left:calc(12px + env(safe-area-inset-left,0px));font-size:12px;padding:4px 10px;border-radius:99px;background:#0009}
 #bench{top:calc(92px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 8px 7px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-size:13px;font-weight:600;white-space:nowrap;max-width:calc(100vw - 16px)}#benchJoin{padding:7px 12px;border-radius:5px;background:var(--kt-red);font-weight:700}
-#song{left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:208px;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}#songHead{display:flex;justify-content:space-between;align-items:center;padding:3px 4px 3px 9px;font-size:12px;font-weight:600}#songOff{width:28px;height:28px}#ytBox{width:208px;height:117px}#ytBox iframe,#ytBox div{width:100%;height:100%;border:0}
+#song{left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:208px;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}#songHead{display:flex;justify-content:space-between;align-items:center;padding:3px 4px 3px 9px;font-size:12px;font-weight:600}#songOff{width:28px;height:28px}#ytBox{width:208px;height:200px}#ytBox iframe,#ytBox div{width:100%;height:100%;border:0}
 #teamPick{display:flex;gap:6px;margin:12px 0 2px}#teamPick button{flex:1;padding:9px 6px;border-radius:5px;background:#ffffff14;font-size:13px;font-weight:600}#teamPick button[aria-pressed=true]{background:var(--kt-red)}
 #mode b{color:var(--gold);font-weight:600}
 
@@ -674,13 +674,14 @@ const Demo=(()=>{const P=(pcode,name,posName,batOrder)=>({pcode,name,posName,bat
  return{step(){const s=normalize(raw());applyState(s,false);i++;if(i>=seq.length){i=0;loops++;live.seen.clear();live.last={};live.first=true;live.lines=[]}},raw}})();
 
 /* cheer songs: the official YouTube player, shown small as its terms require */
+const clip=c=>({videoId:c.videoId,startSeconds:c.start,...(c.end>c.start?{endSeconds:c.end}:{})});
 const Song=(()=>{let list=new Map(),yt=null,ready=false,current=null,off=false,loading=false;const box=$('song');
- const load=()=>{if(loading)return;loading=true;window.onYouTubeIframeAPIReady=()=>{yt=new YT.Player('ytBox',{width:208,height:117,playerVars:{playsinline:1,rel:0,controls:1},events:{onReady(){ready=true;play(current)},onStateChange(e){if(e.data===0&&current)yt.seekTo(current.start,true)},onError(){box.hidden=true}}})};const t=document.createElement('script');t.src='https://www.youtube.com/iframe_api';t.onerror=()=>{loading=false};document.head.append(t)};
- const play=c=>{if(!c||off||!Audio_.on)return;box.hidden=false;$('songName').textContent=`${c.name} 응원가`;if(!ready){load();return}yt.loadVideoById({videoId:c.videoId,startSeconds:c.start,...(c.start?{endSeconds:c.start+70}:{})})};
+ const load=()=>{if(loading)return;loading=true;window.onYouTubeIframeAPIReady=()=>{yt=new YT.Player('ytBox',{width:208,height:200,playerVars:{playsinline:1,rel:0,controls:1},events:{onReady(){ready=true;play(current)},onStateChange(e){if(e.data===0&&current)yt.loadVideoById(clip(current))},onError(){box.hidden=true}}})};const t=document.createElement('script');t.src='https://www.youtube.com/iframe_api';t.onerror=()=>{loading=false};document.head.append(t)};
+ const play=c=>{if(!c||off||!Audio_.on)return;box.hidden=false;$('songName').textContent=`${c.name} 응원가`;if(!ready){load();return}yt.loadVideoById(clip(c))};
  const stop=()=>{current=null;box.hidden=true;if(ready)yt.stopVideo()};
  $('songOff').onclick=()=>{off=true;stop()};
  return{async refresh(){try{const r=await fetch(API+'/cheers.json');if(!r.ok)return;const d=await r.json();list=new Map(d.cheers.map(c=>[c.team+':'+c.name,c]))}catch{}},
-  batter(code,name){if(live.status!=='live'&&!DEMO){return}const c=list.get(code+':'+name);if(!c){stop();return}if(current?.videoId===c.videoId&&current.start===c.start)return;current=c;play(c)},stop,resume(){off=false;if(current)play(current)}}})();
+  batter(code,name){if(live.status!=='live'&&!DEMO){return}const c=list.get(code+':'+name);if(!c){stop();return}if(current?.videoId===c.videoId&&current.start===c.start&&current.end===c.end)return;current=c;play(c)},stop,resume(){off=false;if(current)play(current)}}})();
 
 /* live data: one static file refreshed by a single collector, so visitors never touch Naver */
 const API=new URLSearchParams(location.search).get('api')||'https://api.gohaeyaji.com/wiz';const kst=()=>new Date(Date.now()+9*36e5).toISOString().slice(0,10);
