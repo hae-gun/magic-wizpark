@@ -108,6 +108,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
   <button id="msgBtn" aria-expanded="false">응원 메시지<kbd>C</kbd></button>
   <button id="actBtn" aria-expanded="false">격한 응원<kbd>X</kbd></button>
   <button id="seatBtn" aria-expanded="false">자리 이동<kbd>T</kbd></button>
+  <button id="gameBtn" hidden aria-pressed="true">내 캐릭터 보기<kbd>V</kbd></button>
   <button id="boardBtn" aria-pressed="false">전광판 보기<kbd>B</kbd></button>
   <button id="songBtn" aria-pressed="true">응원가 끄기<kbd>L</kbd></button>
   <button id="soundBtn">소리 켬<kbd>M</kbd></button>
@@ -705,14 +706,99 @@ function applyLive(d){const g=d.game;
 async function poll(){let wait=POLL_MS;try{const d=await getState();if(Date.now()-d.checkedAt>STALE_MS)throw new Error('stale');wait=applyLive(d);live.fail=0}
  catch(e){live.fail=(live.fail||0)+1;wait=20000;if(live.status==='live')$('mode').innerHTML='<b>연결 재시도 중</b> 마지막 정보를 보여 드립니다';else startDemo()}
  setTimeout(poll,wait)}
+/* ---------- demo only: characters replay a game on the field, from recorded plays or a sample ---------- */
+const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4],2:[0,-1.5],3:[-16.5,24],4:[-8,33],5:[16.5,24],6:[8,33],7:[33,62],8:[0,80],9:[-33,62]},LAND={lf:[34,58],lc:[18,76],cf:[0,86],rc:[-18,76],rf:[-34,58]},DUG={home:[-23,13],away:[23,13]},COVER={3:1,4:2,6:2,5:3,2:0,1:1},POSN={1:'투수',2:'포수',3:'1루수',4:'2루수',5:'3루수',6:'유격수',7:'좌익수',8:'중견수',9:'우익수'},LABEL={hr:'홈런',triple:'3루타',double:'2루타',single:'안타',k:'삼진 아웃',bb:'볼넷',hbp:'몸에 맞는 공',error:'실책',fc:'야수선택',bunt:'번트 아웃',ground:'땅볼 아웃',fly:'뜬공 아웃',line:'직선타 아웃',dp:'병살타'},WORD={B:'볼',S:'스트라이크',F:'파울',W:'헛스윙',X:'타격'};
+ let on=false,cam=false,actors=new Set(),timers=[],flight=null,team={},D=null,batter=null,bases=[null,null,null,null],lineup={home:{},away:{}},S,focus=new THREE.Vector3(0,1,18),frame=0;
+ const ball=new THREE.Mesh(new THREE.SphereGeometry(.2,14,10),glow(0xffffff));ball.visible=false;scene.add(ball);
+ const fresh=()=>({inn:1,top:true,home:0,away:0,hH:0,aH:0,hE:0,aE:0,b:0,s:0,o:0,lines:{home:{},away:{}},plays:[],n:0,batter:null,pitcher:null});
+ const spawn=(u,num,name,head)=>{const c=makeChibi({u,num,name,key:name+num,look:LOOKS[name],headgear:head});c.scale.setScalar(1.42);scene.add(c);const a={c,to:null,sp:9,done:null,phase:rand(6),over:null,ot:0,od:0,odone:null,ready:false,gear:null};actors.add(a);return a};
+ const drop=a=>{actors.delete(a);scene.remove(a.c);a.c.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.map?.dispose();m.material.dispose()}})};
+ const wait=s=>new Promise(r=>timers.push({t:s,r}));
+ const run=(a,x,z,sp=9.5)=>new Promise(r=>{a.done?.();a.to=[x,z];a.sp=sp;a.done=r});
+ const anim=(a,dur,fn)=>new Promise(r=>{a.odone?.();a.over=fn;a.ot=0;a.od=dur;a.odone=r});
+ const place=(a,x,z,yaw)=>{a.c.position.set(x,0,z);if(yaw!=null)a.c.rotation.y=yaw};
+ const face=(a,x,z)=>{a.c.rotation.y=Math.atan2(x-a.c.position.x,z-a.c.position.z)};
+ const fly=(from,to,h,dur,ground)=>new Promise(r=>{flight?.r();ball.visible=true;flight={from,to,h,dur,t:0,r,ground}});
+ const P=(x,y,z)=>new THREE.Vector3(x,y,z),hand=a=>P(a.c.position.x,2,a.c.position.z);
+ const armUp=(k,a)=>{const c=a.c;c.armR.p.rotation.set(k<.6?-k/.6*2.9:-2.9+(k-.6)/.4*2.4,0,-.1)};
+ const throwTo=async(a,x,z)=>{face(a,x,z);anim(a,.32,armUp);await wait(.2);const dist=Math.hypot(x-a.c.position.x,z-a.c.position.z);await fly(hand(a),P(x,1.8,z),Math.min(dist*.05,2.4),Math.max(.3,dist/34))};
+ /* state pushed to the existing scoreboard, cards and crowd reactions */
+ const say=text=>{S.plays.push({id:'g'+S.n++,text,inn:S.inn,top:S.top});S.plays=S.plays.slice(-12)};
+ const push=()=>applyState({inn:S.inn,top:S.top,home:S.home,away:S.away,hH:S.hH,aH:S.aH,hE:S.hE,aE:S.aE,b:S.b,s:S.s,o:Math.min(S.o,3),bases:bases.slice(1).map(Boolean),batter:S.batter,pitcher:S.pitcher,plays:S.plays,lines:S.lines,lineup},false);
+ const bat=S=>S.top?'away':'home',def=S=>S.top?'home':'away';
+ const addRuns=n=>{if(!n)return;const b=bat(S);S[b]+=n;S.lines[b][S.inn]=(S.lines[b][S.inn]||0)+n;const o=S.lines[def(S)];if(o[S.inn]==null&&!S.top)o[S.inn]=o[S.inn]||0};
+ const toDugout=a=>{if(a.gear){a.c.armR.socket.remove(a.gear.R);a.gear=null}const side=bat(S);run(a,...DUG[side],8).then(()=>drop(a))};
+ const setBat=a=>{const g=makeGear('bat');a.c.armR.socket.add(g.R);g.R.scale.setScalar(1.25);a.gear=g};
+ const stance=(a,k=0)=>{const c=a.c;c.root.rotation.y=-1+k*2.7;c.armR.p.rotation.set(-1.25,0,-.25);c.armL.p.rotation.set(-1.25,0,.35);c.armR.socket.rotation.set(-.5,0,1.1)};
+ /* one fielding team per side, both kept ready so a half inning only swaps who is out there */
+ const makeTeam=side=>{const u=teamU(side),t={};for(let i=1;i<=9;i++){const a=spawn(u,String(i*7+3),'','cap');const g=new THREE.Mesh(new THREE.SphereGeometry(.16,10,8),toon(0x7a4a24));a.c.armL.socket.add(g);a.c.visible=false;t[i]=a}return t};
+ const takeField=async side=>{D=team[side];const list=Object.entries(D);list.forEach(([n,a])=>{place(a,...DUG[side]);a.c.visible=true;a.ready=true});await Promise.all(list.map(([n,a])=>run(a,...SPOT[n],13)));list.forEach(([n,a])=>{if(n==='1')place(a,...SPOT[1],Math.PI);else if(n==='2')place(a,...SPOT[2],0);else face(a,0,12)})};
+ const leaveField=async()=>{const side=def(S),list=Object.values(D);await Promise.all(list.map(a=>run(a,...DUG[side],13)));list.forEach(a=>a.c.visible=false)};
+ const home=()=>{Object.entries(D).forEach(([n,a])=>{if(n==='2'){place(a,...SPOT[2],0);return}run(a,...SPOT[n],7).then(()=>{if(n==='1')a.c.rotation.y=Math.PI;else face(a,0,12)})})};
+ /* a plate appearance */
+ const pitch=async code=>{const p=D[1],swing=code!=='B'&&code!=='S';await wait(.5);anim(p,.72,(k,a)=>{const c=a.c;c.root.rotation.x=k<.6?-.15:.35*(k-.6)/.4;armUp(k,a)});await wait(.5);
+  const toss=fly(P(0,2.7,17.3),P(0,1.45,-.9),.15,.42);await wait(.26);if(swing)anim(batter,.3,(k,a)=>stance(a,k));await toss;
+  if(code==='F'){const s=Math.random()<.5?1:-1;await fly(P(0,1.4,0),P(s*14,7,-8),3,.5);ball.visible=false}else if(code==='W'||code==='B'||code==='S'){await wait(.3);ball.visible=false}
+  if(code!=='X')await wait(.35)};
+ const count=c=>{if(c==='B')S.b++;else if(c==='S'||c==='W'||(c==='F'&&S.s<2))S.s++};
+ const dest=(e,type)=>{const r=e.res,exp=new Map((e.runners||[]).map(m=>[m.from,m.to])),adv={single:1,double:2,triple:3,hr:4,error:1}[type]||0,forced=type==='bb'||type==='hbp',out=[];
+  let chain=true;for(let b=1;b<=3;b++){if(!bases[b]){chain=false;continue}let to=exp.has(b)?exp.get(b):forced?(chain?b+1:b):b+adv;if(type==='dp'&&!exp.has(b)&&b===1)to=0;out.push([b,Math.min(to,4)])}return out};
+ const go=async(a,from,to,sp)=>{const end=to||from+1;for(let b=from+1;b<=Math.min(end,4);b++){await run(a,...BASE[b%4],sp);if(!a.c.parent)return}if(to===0){drop(a)}else if(to===4)toDugout(a)};
+ const moveRunners=(list,e,sp)=>{const next=[null,null,null,null];const jobs=[];let outs=0;const runs=[];for(const[b,to]of list){const a=bases[b];bases[b]=null;if(to===b){next[b]=a;continue}if(to===0)outs++;if(to===4)runs.push(a);if(to>0&&to<4)next[to]=a;jobs.push(go(a,b,to,sp))}for(let b=1;b<=3;b++)if(next[b])bases[b]=next[b];return{jobs,outs,runs:runs.length}};
+ const nearOF=(x,z)=>[7,8,9].sort((p,q)=>Math.hypot(SPOT[p][0]-x,SPOT[p][1]-z)-Math.hypot(SPOT[q][0]-x,SPOT[q][1]-z))[0];
+ const line=(e,extra='')=>{const r=e.res;say(`${e.batter} ${r.field?POSN[r.field]+' ':''}${LABEL[r.type]}${extra}`)};
+ const result=async e=>{const r=e.res,t=r.type,b=batter;batter=null;const started=['k','bb','hbp'].includes(t);const m=dest(e,t);
+  const takeBase=(to,sp)=>{bases[to]=b;return go(b,0,to,sp)};
+  if(t==='k'){S.o++;line(e);push();toDugout(b);await wait(1.2);return}
+  if(t==='bb'||t==='hbp'){if(b.gear){b.c.armR.socket.remove(b.gear.R);b.gear=null}const mv=moveRunners(m);addRuns(mv.runs);line(e,mv.runs?', 득점':'');push();await Promise.all([takeBase(1,7),...mv.jobs]);return}
+  if(b.gear){b.c.armR.socket.remove(b.gear.R);b.gear=null}b.c.root.rotation.y=0;
+  if(t==='hr'){const dir=r.dir||'cf',[x,z]=LAND[dir];const sp=P(x*1.75,16,z*1.55);await fly(P(0,1.4,0),sp,16,2.3);ball.visible=false;const mv=moveRunners(m,e,7.5);addRuns(mv.runs+1);line(e);push();bases[0]=null;await Promise.all([go(b,0,4,7.5),...mv.jobs]);return}
+  if(t==='single'||t==='double'||t==='triple'){const infield=r.field&&r.field<7&&t==='single',deep=t==='single'?.72:t==='double'?.95:1.12,[x0,z0]=infield?SPOT[r.field]:(LAND[r.dir]||LAND[['lf','cf','rf','lc','rc'][S.n%5]]),x=infield?x0:x0*deep,z=infield?z0:z0*deep,n=infield?r.field:nearOF(x,z),c=D[n],to=r.to||{single:1,double:2,triple:3}[t],mv=moveRunners(m,e,9.5);
+   const landing=fly(P(0,1.4,0),P(x,.3,z),infield?.2:t==='single'?6:9,infield?.7:1.3,infield);const chase=run(c,x,z,10);takeBase(to,9.5);await landing;addRuns(mv.runs);S[bat(S)==='home'?'hH':'aH']++;line(e,mv.runs?', 득점':'');push();await chase;await throwTo(c,...(to>=2||infield?BASE[2]:[0,30]));ball.visible=false;await Promise.all(mv.jobs);await wait(.6);return}
+  if(t==='fly'||t==='line'){const n=r.field||8,c=D[n];let[x,z]=SPOT[n];if(r.foul){x+=x>=0?10:-10;z=n===2?-7:z-4}const catching=run(c,x,z,8);const fl=fly(P(0,1.4,0),P(x,1.9,z),t==='fly'?(n>6?18:14):1.2,t==='fly'?2.2:.7);const toFirst=run(b,...BASE[1],8);await fl;await catching;ball.visible=false;S.o++;const ex=(e.runners||[]).filter(q=>q.to>0);const mv=moveRunners(m.filter(([q])=>ex.some(z=>z.from===q)),e,9);addRuns(mv.runs);line(e,r.sac?', 희생플라이':'');push();toDugout(b);await Promise.all(mv.jobs);await wait(.6);return}
+  /* grounders, bunts, errors and double plays */
+  const n=r.field||6,[fx,fz]=t==='bunt'?[n===5?5:n===3?-5:0,6]:SPOT[n],gx=fx*.88,gz=fz*.88,c=D[n];
+  const toFirst=run(b,...BASE[1],9);const reach=run(c,gx,gz,8);const fielded=fly(P(0,1.2,0),P(gx,.3,gz),.1,t==='bunt'?.9:.8,true);await fielded;await reach;
+  if(t==='error'){await fly(P(gx,.3,gz),P(gx*1.25,.3,gz*1.25),.8,.6,true);S[bat(S)==='home'?'aE':'hE']++;const mv=moveRunners(m,e,9);addRuns(mv.runs);line(e,mv.runs?', 득점':'');push();bases[r.to||1]=b;if(r.to>1)await go(b,1,r.to,9);await run(c,gx*1.25,gz*1.25,8);ball.visible=false;await Promise.all(mv.jobs);return}
+  const raw=r.relay?.length>1?r.relay:t==='dp'?[n,n===6?4:6,3]:[n,3],chain=raw[0]===n?raw:[n,...raw],mv=moveRunners(m,e,9);
+  for(let i=1;i<chain.length;i++){const q=D[chain[i]],[x,y]=BASE[COVER[chain[i]]];run(q,x,y,11)}await wait(.25);
+  for(let i=1;i<chain.length;i++){const from=D[chain[i-1]],[x,y]=BASE[COVER[chain[i]]];await throwTo(from,x,y)}ball.visible=false;
+  const fc=t==='fc';if(!fc)S.o++;S.o+=mv.outs+(t==='dp'&&!mv.outs?1:0);addRuns(S.o<3?mv.runs:0);line(e,t==='fc'?'':mv.runs&&S.o<3?', 득점':'');push();if(fc){bases[1]=b}else toDugout(b);await Promise.all(mv.jobs);await wait(.5)};
+ const pa=async e=>{const b=bat(S),name=e.batter;S.b=S.s=0;S.batter={code:b+':'+name,name,num:'',order:e.order,pos:'',line:'',hand:'',side:b};const pn=e.pitcher||lineup[def(S)]?.pitcher?.[0]?.name||'투수';S.pitcher={code:def(S)+':'+pn,name:pn,num:'',line:'',side:def(S)};say(`${e.order}번 타자 ${name}`);
+  const lefty=hash(name)%10<3,a=spawn(teamU(b),String(hash(name)%89+10),name.slice(0,3),'helmet');batter=a;setBat(a);place(a,lefty?-1.5:1.5,.1,lefty?Math.PI/2:-Math.PI/2);stance(a);a.bat=true;push();await wait(1.3);
+  const list=[...(e.pitches||[])],t=e.res?.type;if(t==='k'&&!/[WS]$/.test(list.join('')))list.push('W');if((t==='bb')&&list.at(-1)!=='B')list.push('B');if(t==='hbp'&&!list.length)list.push('B');if(e.res&&!['k','bb','hbp'].includes(t)&&list.at(-1)!=='X')list.push('X');
+  const shown=list.slice(-3);list.slice(0,list.length-shown.length).forEach(count);if(list.length>shown.length){push()}
+  let i=list.length-shown.length;for(const c of shown){i++;await pitch(c);if(c!=='X'){count(c);say(`${i}구 ${WORD[c]}`);push()}}
+  for(const q of e.mid||[]){const r=bases[q.from];if(!r)continue;bases[q.from]=null;if(q.to>0&&q.to<4)bases[q.to]=r;if(q.to===0)S.o++;await go(r,q.from,q.to,10);push()}
+  if(e.res)await result(e);else{toDugout(a);batter=null}
+  if(actors.has(a))a.bat=false;home();await wait(1.1)};
+ const change=async e=>{await wait(.8);for(let b=1;b<=3;b++)if(bases[b]){toDugout(bases[b]);bases[b]=null}await leaveField();S.inn=e.inn;S.top=e.top;S.o=S.b=S.s=0;push();await takeField(def(S));await wait(.6)};
+ const play=async events=>{for(;;){S=fresh();live.seen.clear();live.last={};live.first=true;live.lines=[];S.inn=events[0].inn;S.top=events[0].top;await takeField(def(S));for(const e of events){if(e.inn!==S.inn||e.top!==S.top)await change(e);await pa(e)}await wait(2);say('경기 재연이 끝났습니다');push();await wait(5);await leaveField();for(let b=1;b<=3;b++)if(bases[b]){drop(bases[b]);bases[b]=null}}};
+ const SAMPLE=(()=>{const L={home:{batter:['황재균','김상수','로하스','강백호','장성우','배정대','오윤석','문상철','심우준'].map((n,i)=>({pcode:'h'+i,name:n,posName:'',batOrder:i+1})),pitcher:[{pcode:'hp',name:'고영표'}]},away:{batter:['김지찬','윤정빈','구자욱','디아즈','강민호','김영웅','이재현','류지혁','박병호'].map((n,i)=>({pcode:'a'+i,name:n,posName:'',batOrder:i+1})),pitcher:[{pcode:'ap',name:'원태인'}]}};
+  const E=(inn,top,order,pitches,type,field=0,dir=null,more={})=>({inn,top,order,batter:(top?L.away:L.home).batter[order-1].name,pitcher:'',pitches:[...pitches],mid:[],res:{type,field,relay:[],dir,foul:false,sac:false,to:null,...(more.res||{})},runners:more.runners||[]});
+  return{lineup:L,events:[E(1,true,1,'BSX','ground',6),E(1,true,2,'BBX','single',7,'lf'),E(1,true,3,'SFX','fly',8,'cf'),E(1,true,4,'BSWW','k'),
+   E(1,false,1,'SX','double',9,'rc',{}),E(1,false,2,'BX','ground',4,null,{runners:[{from:2,to:3}]}),E(1,false,3,'BBBB','bb'),E(1,false,4,'SBX','hr',0,'lf'),E(1,false,5,'BSX','dp',6),
+   E(2,true,5,'BSX','line',5),E(2,true,6,'SX','single',8,'cf'),E(2,true,7,'BBX','error',6),E(2,true,8,'BSX','triple',0,'rc'),E(2,true,9,'BX','fly',7,'lf',{res:{sac:true},runners:[{from:3,to:4}]}),E(2,true,1,'SSBW','k')]}})();
+ const start=async()=>{on=true;cam=true;live.status='demo';fence.visible=true;$('gameBtn').hidden=false;let src=null;try{const r=await fetch(API+'/replay.json',{cache:'no-store'});if(r.ok){const j=await r.json();if(j.events?.length>=5)src=j}}catch{}
+  if(src){live.teams={home:src.home,away:src.away,ktHome:src.homeCode===T.code,homeCode:src.homeCode,awayCode:src.awayCode};lineup=src.lineup;live.boardTitle=`${src.away} : ${src.home} 재연`;$('mode').innerHTML='<b>경기 재연</b> 실제 기록을 따라가지만 공 위치와 세부 동작은 추정입니다'}
+  else{lineup=SAMPLE.lineup;src=SAMPLE;live.boardTitle='경기 재연 시험 (실제 경기 아님)';$('mode').innerHTML='<b>경기 재연 시험</b> 실제 경기가 아니며 꾸민 내용입니다'}
+  team.home=makeTeam('home');team.away=makeTeam('away');play(src.events).catch(e=>console.error(e))};
+ const step=(dt,t)=>{if(!on)return;frame++;for(let i=timers.length-1;i>=0;i--){const q=timers[i];q.t-=dt;if(q.t<=0){timers.splice(i,1);q.r()}}
+  if(flight){const f=flight;f.t+=dt;const k=Math.min(1,f.t/f.dur);ball.position.lerpVectors(f.from,f.to,k);ball.position.y+=f.ground?Math.abs(Math.sin(k*9))*(1-k)*.9:4*f.h*k*(1-k);if(frame%2===0)FX.emit(ball.position.x,ball.position.y,ball.position.z,'#ffffff',1,.2,.28,.22);if(k>=1){flight=null;f.r()}}
+  for(const a of actors){const c=a.c;if(!c.visible)continue;if(a.to){const dx=a.to[0]-c.position.x,dz=a.to[1]-c.position.z,l=Math.hypot(dx,dz);if(l<a.sp*dt+.05){c.position.x=a.to[0];c.position.z=a.to[1];a.to=null;const r=a.done;a.done=null;r?.()}else{c.position.x+=dx/l*a.sp*dt;c.position.z+=dz/l*a.sp*dt;c.rotation.y=Math.atan2(dx,dz);a.phase+=dt*14;const s=Math.sin(a.phase);c.legL.rotation.x=s*.8;c.legR.rotation.x=-s*.8;c.armR.p.rotation.set(-s*.9,0,-.14);c.armL.p.rotation.set(s*.9,0,.14);c.root.rotation.set(.18,0,0);c.root.position.y=Math.abs(s)*.09}}
+   if(a.over){a.ot+=dt;const k=Math.min(1,a.ot/a.od);a.over(k,a);if(k>=1){a.over=null;const r=a.odone;a.odone=null;r?.()}}
+   else if(!a.to){c.legL.rotation.x=c.legR.rotation.x=0;c.root.position.y=0;if(a.bat&&a===batter)stance(a);else{c.root.rotation.set(a.ready?.22:0,0,0);c.armR.p.rotation.set(a.ready?-.55:0,0,-.14);c.armL.p.rotation.set(a.ready?-.55:0,0,.14)}}}
+  if(ball.visible)focus.lerp(ball.position,Math.min(1,dt*5));else focus.lerp(P(0,1,18),Math.min(1,dt*2))};
+ return{start,step,get cam(){return on&&cam},toggle(){cam=!cam;const b=$('gameBtn');b.setAttribute('aria-pressed',cam);b.firstChild.nodeValue=cam?'내 캐릭터 보기':'경기 보기'},focus,on:()=>on,get S(){return S},get actors(){return actors}}})();
+
 /* anonymous usage counts: no identifier leaves the browser, only yes or no flags */
 function hit(e,extra=''){try{fetch(`${API}/hit?e=${e}${extra}`,{mode:'no-cors',keepalive:true}).catch(()=>{})}catch{}}
 function refSource(){const q=new URLSearchParams(location.search).get('utm_source');const h=q||(()=>{try{return new URL(document.referrer).hostname}catch{return ''}})();if(!h||/gohaeyaji|github\.io/.test(h))return'direct';for(const k of['instagram','kakao','naver','google','youtube'])if(h.includes(k)||(k==='youtube'&&h.includes('youtu.be')))return k;return'other'}
 function noteVisit(){const d=kst(),last=store.get('lastVisit',''),first=last!==d;store.set('lastVisit',d);hit('visit',`&d=${first?1:0}&r=${first&&last?1:0}&s=${refSource()}`)}
-function boot(){noteVisit();Song.refresh();setInterval(Song.refresh,60000);if(DEMO){startDemo('<b>선수 등장 시험</b> 실제 중계가 아니며 꾸민 장면입니다');return}live.status='connecting';poll()}
+function boot(){noteVisit();Song.refresh();setInterval(Song.refresh,60000);if(DEMO){Game.start();return}live.status='connecting';poll()}
 
 /* ---------- input ---------- */
-const keys={};addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;keys[e.code]=true;if(e.code==='Space'){e.preventDefault();startCheer()}if(e.code==='Escape')closeDrawer();if(e.code==='KeyU')toggleDrawer('ward');if(e.code==='KeyG')toggleDrawer('gear');if(e.code==='KeyT')toggleDrawer('seat');if(e.code==='KeyC')toggleDrawer('msg');if(e.code==='KeyX')toggleDrawer('act');if(e.code==='KeyB')toggleBoardView();if(e.code==='KeyL')$('songBtn').click();if(e.code==='KeyM')$('soundBtn').click()});
+const keys={};addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;keys[e.code]=true;if(e.code==='Space'){e.preventDefault();startCheer()}if(e.code==='Escape')closeDrawer();if(e.code==='KeyU')toggleDrawer('ward');if(e.code==='KeyG')toggleDrawer('gear');if(e.code==='KeyT')toggleDrawer('seat');if(e.code==='KeyC')toggleDrawer('msg');if(e.code==='KeyX')toggleDrawer('act');if(e.code==='KeyB')toggleBoardView();if(e.code==='KeyV'&&Game.on())Game.toggle();if(e.code==='KeyL')$('songBtn').click();if(e.code==='KeyM')$('soundBtn').click()});
 addEventListener('keyup',e=>{keys[e.code]=false;if(e.code==='Space')nav.cheerHold=false});
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
 const marker=new THREE.Mesh(new THREE.RingGeometry(.42,.56,32),new THREE.MeshBasicMaterial({color:0xffc861,transparent:true,side:THREE.DoubleSide,depthWrite:false}));marker.rotation.x=-Math.PI/2;marker.visible=false;scene.add(marker);
@@ -741,7 +827,7 @@ function toggleDrawer(kind){const d=$('drawer');for(const[k,b]of[['ward','wardBt
  if(kind==='msg'){$('drawerT').textContent='응원 메시지';$('drawerS').textContent='누르면 내 캐릭터 위 말풍선으로 나오고 근처 사람들에게 보입니다.';T.msgs.forEach((m,i)=>pick(m,'',null,false,()=>{say(i);closeDrawer()},'seat'))}
  if(kind==='act'){$('drawerT').textContent='격한 응원';$('drawerS').textContent='근처 사람들에게도 보입니다.';ACTS.forEach((a,i)=>pick(a.n,a.s,null,false,()=>{act(i);closeDrawer()},'seat'));pick('벤치클리어링 난입','모집 인원이 차면 양 팀이 마운드로 달려 나옵니다',null,false,()=>{Bench.join();closeDrawer()},'seat')}
  if(kind==='seat'){$('drawerT').textContent='자리 이동';$('drawerS').textContent='구장 안의 자리로 이동하거나 내 응원 팀을 바꿀 수 있습니다.';SEATS.forEach(s=>pick(s.n,s.s,null,false,()=>{teleport(s);toggleDrawer('seat')},'seat'));const other=CH==='kt'?'samsung':'kt';pick(`${THEMES[other].name} 팬으로 변경`,'내 화면의 테마와 옷장이 바뀌고 입장 화면으로 돌아갑니다',null,false,()=>{store.set('channel',other);location.hash=other;location.reload()},'seat')}}
-const closeDrawer=()=>{if(drawer)toggleDrawer(drawer)};$('drawerClose').onclick=closeDrawer;$('wardBtn').onclick=()=>toggleDrawer('ward');$('gearBtn').onclick=()=>toggleDrawer('gear');$('seatBtn').onclick=()=>toggleDrawer('seat');$('msgBtn').onclick=()=>toggleDrawer('msg');$('benchJoin').onclick=()=>Bench.join();$('actBtn').onclick=()=>toggleDrawer('act');$('boardBtn').onclick=toggleBoardView;
+const closeDrawer=()=>{if(drawer)toggleDrawer(drawer)};$('drawerClose').onclick=closeDrawer;$('wardBtn').onclick=()=>toggleDrawer('ward');$('gearBtn').onclick=()=>toggleDrawer('gear');$('seatBtn').onclick=()=>toggleDrawer('seat');$('msgBtn').onclick=()=>toggleDrawer('msg');$('benchJoin').onclick=()=>Bench.join();$('actBtn').onclick=()=>toggleDrawer('act');$('boardBtn').onclick=toggleBoardView;$('gameBtn').onclick=()=>Game.toggle();
 $('soundBtn').onclick=()=>{const on=Audio_.toggle();if(on)Song.resume();else Song.pause();$('soundBtn').firstChild.nodeValue=on?'소리 끔':'소리 켬'};
 $('nick').value=me.nick;$('nick').placeholder=T.nick;$('titleA').textContent=T.title[0];$('titleB').textContent=T.title[1];$('gateInfo').textContent=T.info;document.title=T.title.join(' ');for(const[id,ch]of[['pickKt','kt'],['pickSs','samsung']]){const b=$(id);b.setAttribute('aria-pressed',CH===ch);b.onclick=()=>{if(CH===ch)return;store.set('channel',ch);location.hash=ch;location.reload()}}document.body.classList.add('gated');
 $('enter').onclick=()=>{me.nick=$('nick').value.trim().slice(0,8);store.set('nick',me.nick);dress(hero,me.u,me.num,me.nick||T.nick.slice(0,2));$('gate').classList.add('off');document.body.classList.remove('gated');Net.connect();hit('enter');setTimeout(()=>$('gate').hidden=true,520);if(!Audio_.on)$('soundBtn').click();teleport(SEATS[0]);nav.pitch=.12};
@@ -823,7 +909,8 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/10
  const cl=nav.closeup&&!moving;const portraitView=innerHeight>innerWidth,dist=cl?(portraitView?7.6:5.2):nav.dist,py=cl?.12:nav.pitch,yaw=cl?hero.rotation.y+.42+Math.sin(t*.5)*.26:nav.yaw;
  const want=new THREE.Vector3(hero.position.x+Math.sin(yaw)*Math.cos(py)*-(-dist),0,0);want.x=hero.position.x-Math.sin(yaw+Math.PI)*Math.cos(py)*dist;want.y=hero.position.y+1.7+Math.sin(py)*dist;want.z=hero.position.z-Math.cos(yaw+Math.PI)*Math.cos(py)*dist;
  if(!cl){for(const f of[1,.85,.72,.62]){const d=dist*f;want.x=hero.position.x+Math.sin(yaw)*Math.cos(py)*d;want.z=hero.position.z+Math.cos(yaw)*Math.cos(py)*d;want.y=hero.position.y+1.7+Math.sin(py)*d;if(groundAt(want.x,want.z)+.7<=want.y+1.6)break}}
- if(nav.board&&$('gate').classList.contains('off')){camPos.lerp(boardCam,Math.min(1,dt*4));camLook.lerp(boardLook,Math.min(1,dt*5));camera.position.copy(camPos);camera.lookAt(camLook)}
+ if(Game.cam&&!nav.board&&$('gate').classList.contains('off')){const f=Game.focus,deep=clamp((f.z-30)/50,0,1),hi=clamp(f.y/14,0,1);want.set(f.x*.25,25+deep*10,-34+deep*24);camPos.lerp(want,Math.min(1,dt*2.5));camLook.lerp(new THREE.Vector3(f.x*.8,1+hi*9,Math.max(f.z,7)),Math.min(1,dt*4));camera.position.copy(camPos);camera.lookAt(camLook)}
+ else if(nav.board&&$('gate').classList.contains('off')){camPos.lerp(boardCam,Math.min(1,dt*4));camLook.lerp(boardLook,Math.min(1,dt*5));camera.position.copy(camPos);camera.lookAt(camLook)}
  else if(!$('gate').classList.contains('off')){gateAngle+=dt*.04;want.set(Math.sin(gateAngle)*74-28,62,-46+Math.cos(gateAngle)*16);camPos.copy(want);camLook.set(0,14,88);camera.position.copy(camPos);camera.lookAt(camLook)}
  else{want.y=Math.max(want.y,groundAt(want.x,want.z)+.7);if(nav.snap){camPos.copy(want);camLook.set(hero.position.x-Math.sin(yaw)*16,hero.position.y+2.2,hero.position.z-Math.cos(yaw)*16);nav.snap=false}camPos.lerp(want,Math.min(1,dt*7));{const ahead=cl?0:16,lf=-Math.sin(yaw),lz=-Math.cos(yaw);camLook.lerp(new THREE.Vector3(hero.position.x+lf*ahead,hero.position.y+(cl?(portraitView?-.15:1.15):2.2),hero.position.z+lz*ahead),Math.min(1,dt*9))}camera.position.copy(camPos);camera.lookAt(camLook)}
  /* world */
@@ -833,7 +920,7 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/10
  stageGrp.leaders.forEach((l,i)=>{const s=Math.sin(t*6+i*1.05);l.armR.p.rotation.set(-.2,0,-2.2-s*.3);l.armL.p.rotation.set(-.2,0,2.2-s*.3);clearHead(l);l.root.position.y=Math.abs(s)*.13});
  const{m,seeds,d}=lanterns;for(let i=0;i<seeds.length;i++){const s=seeds[i];d.position.set(s.x+Math.sin(t*s.s+s.p)*2.2,s.y+Math.sin(t*s.s*1.8+s.p)*1.5,s.z);d.updateMatrix();m.setMatrixAt(i,d.matrix)}m.instanceMatrix.needsUpdate=true;
  for(let i=shockRings.length-1;i>=0;i--){const r=shockRings[i];r.t+=dt;const k=r.t/1.1;r.m.scale.setScalar(1+k*r.size);r.m.material.opacity=1-k;if(k>=1){scene.remove(r.m);r.m.geometry.dispose();r.m.material.dispose();shockRings.splice(i,1)}}
- Net.move();Net.step(dt,t);Bench.step(dt,t);FX.step(dt);composer.render(dt);frames++}
+ Net.move();Net.step(dt,t);Bench.step(dt,t);Game.step(dt,t);FX.step(dt);composer.render(dt);frames++}
 
 renderHud();
 Promise.race([document.fonts?.ready||Promise.resolve(),new Promise(r=>setTimeout(r,1500))]).then(()=>{dress(hero,me.u,me.num,me.nick||T.nick.slice(0,2));renderBoard()});
@@ -842,5 +929,5 @@ boot();
 requestAnimationFrame(frame);
 /* a background tab gets no animation frames, but a participant must still run on everyone else's screen */
 setInterval(()=>{if(!document.hidden)return;Bench.step(.5,performance.now()/1000);Net.move()},500);
-window.__wiz={Bench,fence,act,ACTS,applyLive,seriesBoard,T,CH,Net,say,live,entryBoards,board,LOOKS,Portrait,live,normalize,applyState,classify,teleport,SEATS,hero,nav,startCheer,firework,Demo,equip,UNIFORMS,wear,toggleDrawer};
+window.__wiz={Game,Bench,fence,act,ACTS,applyLive,seriesBoard,T,CH,Net,say,live,entryBoards,board,LOOKS,Portrait,live,normalize,applyState,classify,teleport,SEATS,hero,nav,startCheer,firework,Demo,equip,UNIFORMS,wear,toggleDrawer};
 </script>
