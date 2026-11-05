@@ -5,7 +5,7 @@ KT 위즈 팬이 만든 비공식 3D 응원 공간입니다. 구단 로고와 �
 ## 구조
 
 - `src/page.html`: 페이지 원본
-- `index.html`, `public/index.html`: 배포용 페이지 (`./build.sh`로 생성, GitHub Pages는 저장소 최상위 `index.html`을 씀)
+- `index.html`, `public/index.html`: 배포용 페이지 (`./build.sh`로 생성, GitHub Actions가 푸시마다 `build.sh`를 돌려 `public`을 배포)
 - `server/collector.mjs`: KBO 중계 수집기
 
 ## 내 컴퓨터에서 보기
