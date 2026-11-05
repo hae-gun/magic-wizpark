@@ -1,4 +1,3 @@
-<meta name="metamoa-site-verification" content="aTb0AxtWAKVha_CNmXiJRw">
 <title>매직 위즈파크</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
@@ -539,7 +538,8 @@ const blob=new THREE.Mesh(new THREE.CircleGeometry(.55,20),new THREE.MeshBasicMa
 let held=null;function equip(id){me.gear=id;store.set('gear',id);Net?.look();if(held){hero.armR.socket.remove(held.R);hero.armL.socket.remove(held.L);hero.root.remove(held.S0.muffler||held.R)}held=makeGear(id);hero.armR.socket.add(held.R);hero.armL.socket.add(held.L);if(held.S0.muffler){held.S0.muffler.position.set(0,1.72,.26);hero.root.add(held.S0.muffler)}held.R.traverse(m=>{if(m.isMesh)m.castShadow=true});held.L.traverse(m=>{if(m.isMesh)m.castShadow=true})}
 equip(me.gear);
 function wear(u){me.u=u;store.set('uniform-'+CH,u.id);Net?.look();dress(hero,u,me.num,me.nick||T.nick.slice(0,2));FX.emit(hero.position.x,hero.position.y+1.2,hero.position.z,u.trim,40,4,.7,.4);Audio_.chime()}
-const nav={target:null,yaw:0,pitch:.12,dist:innerHeight>innerWidth?10.5:8.5,vy:0,y:0,walk:0,cheer:0,cheerHold:false,tapT:0,closeup:0};
+const nav={target:null,yaw:0,pitch:.12,dist:innerHeight>innerWidth?10.5:8.5,vy:0,y:0,walk:0,cheer:0,cheerHold:false,tapT:0,closeup:0};const NAV_HOME={pitch:nav.pitch,dist:nav.dist};
+function facePlay(){const a=Math.atan2(0-hero.position.x,45-hero.position.z);hero.rotation.y=a;nav.yaw=a+Math.PI;nav.pitch=NAV_HOME.pitch;nav.dist=NAV_HOME.dist;nav.snap=true}
 function teleport(seat){if(seat.field&&fence.visible&&!seat.y){showBubble(hero,'경기 중! 펜스를 넘어가요');return}let x,z,y=null;if(seat.field){[x,z]=seat.field;y=seat.y??null}else{const sa=seat.team?(CH==='kt'?-1:1)*Math.PI*.3:seat.a;const best=ring.reduce((a,r)=>{const q=Math.abs(wrap(r.ang-sa));return q<a.q?{q,r}:a},{q:9,r:ring[0]}).r;const p=best.p.clone().addScaledVector(best.n,seat.d);x=p.x;z=p.z}
  FX.emit(hero.position.x,hero.position.y+1,hero.position.z,'#a678ff',60,6,.8,.5);hero.position.set(x,y??0,z);nav.y=y??groundAt(x,z);nav.fixedY=y;
  const toField=Math.atan2(0-x,150-z);hero.rotation.y=toField;nav.yaw=toField+Math.PI;nav.target=null;marker.visible=false;FX.emit(x,nav.y+1,z,'#ffc861',60,6,.9,.5);shock(x,nav.y+.1,z,'#ffc861',3);Audio_.chime();nav.snap=true}
@@ -709,7 +709,7 @@ async function poll(){let wait=POLL_MS;try{const d=await getState();if(Date.now(
  setTimeout(poll,wait)}
 /* ---------- demo only: characters replay a game on the field, from recorded plays or a sample ---------- */
 const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4],2:[0,-1.5],3:[-16.5,24],4:[-8,33],5:[16.5,24],6:[8,33],7:[33,62],8:[0,80],9:[-33,62]},LAND={lf:[34,58],lc:[18,76],cf:[0,86],rc:[-18,76],rf:[-34,58]},DUG={home:[-23,13],away:[23,13]},COVER={3:1,4:2,6:2,5:3,2:0,1:1},POSN={1:'투수',2:'포수',3:'1루수',4:'2루수',5:'3루수',6:'유격수',7:'좌익수',8:'중견수',9:'우익수'},LABEL={hr:'홈런',triple:'3루타',double:'2루타',single:'안타',k:'삼진 아웃',bb:'볼넷',hbp:'몸에 맞는 공',error:'실책',fc:'야수선택',bunt:'번트 아웃',ground:'땅볼 아웃',fly:'뜬공 아웃',line:'직선타 아웃',dp:'병살타'},WORD={B:'볼',S:'스트라이크',F:'파울',W:'헛스윙',X:'타격'};
- let on=false,cam=false,actors=new Set(),timers=[],flight=null,team={},D=null,batter=null,bases=[null,null,null,null],lineup={home:{},away:{}},S,focus=new THREE.Vector3(0,1,18),frame=0;
+ let on=false,cam=false,stay=false,idle=0,actors=new Set(),timers=[],flight=null,team={},D=null,batter=null,bases=[null,null,null,null],lineup={home:{},away:{}},S,focus=new THREE.Vector3(0,1,18),frame=0;
  const ball=new THREE.Mesh(new THREE.SphereGeometry(.2,14,10),glow(0xffffff));ball.visible=false;scene.add(ball);
  const fresh=()=>({inn:1,top:true,home:0,away:0,hH:0,aH:0,hE:0,aE:0,b:0,s:0,o:0,lines:{home:{},away:{}},plays:[],n:0,batter:null,pitcher:null});
  const spawn=(u,num,name,head)=>{const c=makeChibi({u,num,name,key:name+num,look:LOOKS[name],headgear:head});c.scale.setScalar(1.42);scene.add(c);const a={c,to:null,sp:9,done:null,phase:rand(6),over:null,ot:0,od:0,odone:null,ready:false,gear:null};actors.add(a);return a};
@@ -790,7 +790,11 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
    if(a.over){a.ot+=dt;const k=Math.min(1,a.ot/a.od);a.over(k,a);if(k>=1){a.over=null;const r=a.odone;a.odone=null;r?.()}}
    else if(!a.to){c.legL.rotation.x=c.legR.rotation.x=0;c.root.position.y=0;if(a.bat&&a===batter)stance(a);else{c.root.rotation.set(a.ready?.22:0,0,0);c.armR.p.rotation.set(a.ready?-.55:0,0,-.14);c.armL.p.rotation.set(a.ready?-.55:0,0,.14)}}}
   if(ball.visible)focus.lerp(ball.position,Math.min(1,dt*5));else focus.lerp(P(0,1,18),Math.min(1,dt*2))};
- return{start,step,get cam(){return on&&cam},toggle(){cam=!cam;const b=$('gameBtn');b.setAttribute('aria-pressed',cam);b.firstChild.nodeValue=cam?'내 캐릭터 보기':'경기 보기'},focus,on:()=>on,get S(){return S},get actors(){return actors}}})();
+ const label=()=>{const b=$('gameBtn');b.setAttribute('aria-pressed',cam);b.firstChild.nodeValue=cam?'내 캐릭터 보기':'경기 보기'};
+ const setCam=v=>{if(cam===v)return;cam=v;if(!v)nav.snap=true;label()};
+ /* moving shows your character, standing still returns to the game, unless V asked to stay */
+ const follow=(dt,busy)=>{if(!on)return;const now=performance.now();if(busy){idle=now;setCam(false);return}if(!stay&&!cam&&now-idle>3500)setCam(true)};
+ return{start,step,follow,get cam(){return on&&cam},toggle(){stay=cam;idle=performance.now();setCam(!cam)},focus,on:()=>on,get S(){return S},get actors(){return actors}}})();
 
 /* anonymous usage counts: no identifier leaves the browser, only yes or no flags */
 function hit(e,extra=''){try{fetch(`${API}/hit?e=${e}${extra}`,{mode:'no-cors',keepalive:true}).catch(()=>{})}catch{}}
@@ -807,9 +811,9 @@ function walkTo(cx,cy){if(!$('gate').classList.contains('off')||nav.board)return
  const hit=ray.intersectObjects([scene.userData.field,scene.userData.stands],false)[0];if(!hit)return;let{x,z}=hit.point;const n=nearestRing(x,z);if(n.d>TOTAL-.5){x-=n.r.n.x*(n.d-TOTAL+.5);z-=n.r.n.z*(n.d-TOTAL+.5)}
  nav.target={x,z};nav.fixedY=null;marker.position.set(x,groundAt(x,z)+.08,z);marker.visible=true}
 {let drag=null,down=null;const el=renderer.domElement;el.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};down={x:e.clientX,y:e.clientY,t:performance.now()};el.setPointerCapture(e.pointerId)});
- el.addEventListener('pointermove',e=>{if(!drag)return;nav.yaw-=(e.clientX-drag.x)*.005;nav.pitch=clamp(nav.pitch+(e.clientY-drag.y)*.004,-.1,1.15);drag={x:e.clientX,y:e.clientY}});
+ el.addEventListener('pointermove',e=>{if(!drag||Game.cam)return;nav.yaw-=(e.clientX-drag.x)*.005;nav.pitch=clamp(nav.pitch+(e.clientY-drag.y)*.004,-.1,1.15);drag={x:e.clientX,y:e.clientY}});
  const end=()=>drag=null;el.addEventListener('pointerup',e=>{end();if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)<8&&performance.now()-down.t<450){if(drawer)closeDrawer();else walkTo(e.clientX,e.clientY)}});el.addEventListener('pointercancel',end);
- el.addEventListener('wheel',e=>{e.preventDefault();nav.dist=clamp(nav.dist*(1+e.deltaY*.001),3.5,26)},{passive:false})}
+ el.addEventListener('wheel',e=>{e.preventDefault();if(Game.cam)return;nav.dist=clamp(nav.dist*(1+e.deltaY*.001),3.5,26)},{passive:false})}
 function toggleBoardView(){nav.board=!nav.board;$('boardBtn').setAttribute('aria-pressed',nav.board);$('boardBtn').firstChild.nodeValue=nav.board?'내 캐릭터 보기':'전광판 보기'}
 function startCheer(){nav.cheer=1;nav.cheerHold=true;nav.tapT=0}
 const cheerBtn=$('cheer');cheerBtn.addEventListener('pointerdown',e=>{e.preventDefault();startCheer()});for(const ev of['pointerup','pointerleave','pointercancel'])cheerBtn.addEventListener(ev,()=>nav.cheerHold=false);cheerBtn.addEventListener('keydown',e=>{if(e.key==='Enter')startCheer()});
@@ -891,7 +895,7 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/10
  /* movement */
  const ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0),iz=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0);let len=Math.hypot(ix,iz);if(len>.08){nav.target=null;marker.visible=false}
  const tg=nav.target,tdx=tg?tg.x-hero.position.x:0,tdz=tg?tg.z-hero.position.z:0,tdist=Math.hypot(tdx,tdz);if(tg&&tdist<.3){nav.target=null;marker.visible=false}else if(tg)len=1;marker.scale.setScalar(1+Math.sin(t*5)*.14);
- if(nav.climb){const c=nav.climb;c.t+=dt/2.6;const k=Math.min(c.t,1),up=k<.7?k/.7:1,side=k<.55?0:(k-.55)/.45;hero.position.x=lerp(c.from.x,c.to.x,side);hero.position.z=lerp(c.from.z,c.to.z,side);nav.fixedY=k<.7?lerp(c.from.y,c.top,up):lerp(c.top,groundAt(c.to.x,c.to.z),(k-.7)/.3);hero.armR.p.rotation.set(-2.8+Math.sin(t*12)*.5,0,0);hero.armL.p.rotation.set(-2.8-Math.sin(t*12)*.5,0,0);if(k>=1){nav.climb=null;nav.fixedY=null}}
+ if(nav.climb){const c=nav.climb;c.t+=dt/2.6;const k=Math.min(c.t,1),up=k<.7?k/.7:1,side=k<.55?0:(k-.55)/.45;hero.position.x=lerp(c.from.x,c.to.x,side);hero.position.z=lerp(c.from.z,c.to.z,side);nav.fixedY=k<.7?lerp(c.from.y,c.top,up):lerp(c.top,groundAt(c.to.x,c.to.z),(k-.7)/.3);hero.armR.p.rotation.set(-2.8+Math.sin(t*12)*.5,0,0);hero.armL.p.rotation.set(-2.8-Math.sin(t*12)*.5,0,0);if(k>=1){nav.climb=null;nav.fixedY=null;if(nearestRing(hero.position.x,hero.position.z).d>.15)facePlay()}}
  else if(nav.bench){}
  else if(len>.08&&$('gate').classList.contains('off')){const sp=(keys.ShiftLeft||keys.ShiftRight||tdist>22?11:7)*Math.min(len,1),a=tg?Math.atan2(tdx,tdz):nav.yaw+Math.atan2(ix,iz);const vx=Math.sin(a+Math.PI*0)*sp,vz=Math.cos(a)*sp;
   let step=tg?Math.min(1,tdist/(sp*dt+1e-4)):1,nx=hero.position.x+vx*dt*step,nz=hero.position.z+vz*dt*step;const n=nearestRing(nx,nz);if(n.d>TOTAL-.5){nx-=n.r.n.x*(n.d-TOTAL+.5);nz-=n.r.n.z*(n.d-TOTAL+.5)}
@@ -906,6 +910,7 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/10
  {const on=stepAct(hero,dt,t,hero.root,hero.head.children[0]);if(on&&hero.userData.act&&[1,2].includes(hero.userData.act.i)){hero.armR.p.rotation.set(-.2,0,-2.3);hero.armL.p.rotation.set(-.2,0,2.3)}else if(!on)hero.root.position.x=0}
  hero.mouth.scale.y=nav.cheer>.01||hero.userData.act?1.9:1;hero.head.rotation.z=nav.cheer>.01?Math.sin(t*9)*.07:0;
  sun.position.set(hero.position.x+30,hero.position.y+78,hero.position.z-22);sun.target.position.copy(hero.position);
+ Game.follow(dt,moving||!!nav.climb||nav.cheer>.01);
  /* camera */
  const cl=nav.closeup&&!moving;const portraitView=innerHeight>innerWidth,dist=cl?(portraitView?7.6:5.2):nav.dist,py=cl?.12:nav.pitch,yaw=cl?hero.rotation.y+.42+Math.sin(t*.5)*.26:nav.yaw;
  const want=new THREE.Vector3(hero.position.x+Math.sin(yaw)*Math.cos(py)*-(-dist),0,0);want.x=hero.position.x-Math.sin(yaw+Math.PI)*Math.cos(py)*dist;want.y=hero.position.y+1.7+Math.sin(py)*dist;want.z=hero.position.z-Math.cos(yaw+Math.PI)*Math.cos(py)*dist;
