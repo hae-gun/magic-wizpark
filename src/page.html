@@ -818,7 +818,7 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
   return{lineup:L,events:[E(1,true,1,'BSX','ground',6),E(1,true,2,'BBX','single',7,'lf'),E(1,true,3,'SFX','fly',8,'cf'),E(1,true,4,'BSWW','k'),
    E(1,false,1,'SX','double',9,'rc',{}),E(1,false,2,'BX','ground',4,null,{runners:[{from:2,to:3}]}),E(1,false,3,'BBBB','bb'),E(1,false,4,'SBX','hr',0,'lf'),E(1,false,5,'BSX','dp',6),
    E(2,true,5,'BSX','line',5),E(2,true,6,'SX','single',8,'cf'),E(2,true,7,'BBX','error',6),E(2,true,8,'BSX','triple',0,'rc'),E(2,true,9,'BX','fly',7,'lf',{res:{sac:true},runners:[{from:3,to:4}]}),E(2,true,1,'SSBW','k')]}})();
- const start=async()=>{on=true;cam=true;live.status='demo';fence.visible=true;$('gameBtn').hidden=false;let src=null;try{const r=await fetch(API+'/replay.json',{cache:'no-store'});if(r.ok){const j=await r.json();if(j.events?.length>=5)src=j}}catch{}
+ const start=async()=>{on=true;cam=false;stay=true;live.status='demo';fence.visible=true;$('gameBtn').hidden=false;label();let src=null;try{const r=await fetch(API+'/replay.json',{cache:'no-store'});if(r.ok){const j=await r.json();if(j.events?.length>=5)src=j}}catch{}
   if(src){live.teams={home:src.home,away:src.away,ktHome:src.homeCode===T.code,homeCode:src.homeCode,awayCode:src.awayCode};lineup=src.lineup;live.boardTitle=`${src.away} : ${src.home} 재연`;$('mode').innerHTML='<b>경기 재연</b> 실제 기록을 따라가지만 공 위치와 세부 동작은 추정입니다'}
   else{lineup=SAMPLE.lineup;src=SAMPLE;live.boardTitle='경기 재연 시험 (실제 경기 아님)';$('mode').innerHTML='<b>경기 재연 시험</b> 실제 경기가 아니며 꾸민 내용입니다'}
   team.home=makeTeam('home');team.away=makeTeam('away');play(src.events).catch(e=>console.error(e))};
