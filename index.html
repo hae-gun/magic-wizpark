@@ -899,12 +899,12 @@ function bubbleSprite(text){const[c,x]=canvasOf(420,120);x.fillStyle='#fffdf7';x
 function showBubble(g,text){if(g.bubble){g.remove(g.bubble);g.bubble.material.map.dispose();g.bubble.material.dispose()}const s=bubbleSprite(text);g.add(s);g.bubble=s;clearTimeout(g.bubbleT);g.bubbleT=setTimeout(()=>{g.remove(s);s.material.map.dispose();s.material.dispose();if(g.bubble===s)g.bubble=null},3200)}
 const ACTS=[{n:'축포 발사',s:'머리 위로 불꽃을 쏘아 올려요',say:'축포 발사!'},{n:'승리의 점프',s:'펄쩍펄쩍 뛰며 환호해요',say:'이겼다!!'},{n:'분노 폭발',s:'발을 구르고 머리에서 김이 나요',say:'아오!!!'},{n:'드러눕기',s:'그 자리에 벌러덩 누워요',say:'아이고...'},{n:'오열',s:'눈물을 쏟아요',say:'흑흑...'}];
 let actReady=0,remoteBoom=0;
-function startAct(g,i,remote){g.userData.act={i,t:0,tick:0};showBubble(g,ACTS[i].say);const p=g.position,c=T.kit.fx;if(i===0){if(remote){const n=performance.now();if(n<remoteBoom)return;remoteBoom=n+1500}FX.emit(p.x,p.y+2,p.z,c,18,3,.7,.35,16);setTimeout(()=>{FX.emit(p.x,p.y+34,p.z,c,remote?50:110,22,1.5,1);FX.emit(p.x,p.y+34,p.z,T.gold,remote?30:70,15,1.3,.8);Audio_.boom()},620);Audio_.swish()}if(i===2){shock(p.x,p.y+.1,p.z,'#ff5a30',5);Audio_.bonk()}if(i===1)FX.emit(p.x,p.y+2.2,p.z,T.gold,50,7,1,.4,4)}
+function startAct(g,i,remote){if(g===hero)hero.root.rotation.set(0,0,0);else g.rotation.x=0;g.userData.act={i,t:0,tick:0};showBubble(g,ACTS[i].say);const p=g.position,c=T.kit.fx;if(i===0){if(remote){const n=performance.now();if(n<remoteBoom)return;remoteBoom=n+1500}FX.emit(p.x,p.y+2,p.z,c,18,3,.7,.35,16);setTimeout(()=>{FX.emit(p.x,p.y+34,p.z,c,remote?50:110,22,1.5,1);FX.emit(p.x,p.y+34,p.z,T.gold,remote?30:70,15,1.3,.8);Audio_.boom()},620);Audio_.swish()}if(i===2){shock(p.x,p.y+.1,p.z,'#ff5a30',5);Audio_.bonk()}if(i===1)FX.emit(p.x,p.y+2.2,p.z,T.gold,50,7,1,.4,4)}
 function act(i){const n=performance.now();if(n<actReady)return;actReady=n+2100;startAct(hero,i,false);Net.send(['s',16+i])}
-function stepAct(g,dt,t,root,skull){const a=g.userData.act,dur=[1.2,2.6,2.6,3.2,3][a?.i??0];if(!a){return false}a.t+=dt;a.tick+=dt;const p=g.position,s=Math.sin(t*14);if(a.t>dur){g.userData.act=null;root.rotation.set(0,0,0);if(skull)skull.material.color.set(0xf6d2b4);return false}
- if(a.i===1)root.position.y=Math.abs(Math.sin(t*7))*.9;
- if(a.i===2){root.position.x=s*.06;root.position.y=Math.abs(s)*.12;if(skull)skull.material.color.set(0xf0705a);if(a.tick>.09){a.tick=0;FX.emit(p.x+rand(-.3,.3),p.y+2.3,p.z+rand(-.3,.3),'#e8e6e2',2,1,.7,.5,3)}}
- if(a.i===3){root.rotation.x=-1.45;root.position.y=.35}
+function stepAct(g,dt,t,root,skull){const a=g.userData.act,dur=[1.2,2.6,2.6,3.2,3][a?.i??0];if(!a){return false}a.t+=dt;a.tick+=dt;const p=g.position,s=Math.sin(t*14);const add=root===g,put=(k,v)=>{root.position[k]=add?root.position[k]+v:v};if(a.t>dur){g.userData.act=null;if(add)root.rotation.x=0;else root.rotation.set(0,0,0);if(skull)skull.material.color.set(0xf6d2b4);return false}
+ if(a.i===1)put('y',Math.abs(Math.sin(t*7))*.9);
+ if(a.i===2){put('x',s*.06);put('y',Math.abs(s)*.12);if(skull)skull.material.color.set(0xf0705a);if(a.tick>.09){a.tick=0;FX.emit(p.x+rand(-.3,.3),p.y+2.3,p.z+rand(-.3,.3),'#e8e6e2',2,1,.7,.5,3)}}
+ if(a.i===3){root.rotation.x=-1.45;put('y',.35)}
  if(a.i===4){root.rotation.x=.24;if(a.tick>.12){a.tick=0;FX.emit(p.x,p.y+1.7,p.z,'#6fc3ff',3,1.6,.7,.24)}}
  return true}
 function say(i){showBubble(hero,T.msgs[i]);Net.send(['s',MSG_OFF+i]);nav.cheer=1}
