@@ -224,7 +224,7 @@ const SEATS=[
  {id:'home',n:'포수 뒤 중앙석',s:'투구가 가장 잘 보이는 자리',a:Math.PI,d:17.9},
  {id:'lawn',n:'외야 잔디',s:'전광판 아래 돗자리 구역',a:0,d:17.9},
  {id:'mound',n:'마운드',s:'경기 중엔 몰래만',field:[0,18.4]},
- {id:'board',n:'전광판 앞 성벽',s:'화성 성곽 위',field:[0,146],y:9}
+ {id:'board',n:'전광판 앞 성벽',s:'화성 성곽 위',field:[0,116],y:9}
 ];
 /* Fan-entered traits, keyed by player name. Text only, never photos.
    build: 'big' | 'slim', beard: true, glasses: true
@@ -309,15 +309,16 @@ const fieldLight=new THREE.PointLight(0xfff2e4,.5,240,1.1);fieldLight.position.s
 }
 
 /* ---------- stadium geometry ---------- */
-const FENCE=a=>{a=Math.abs(a);const t=a/(Math.PI/4);return t<.5?lerp(120,115,(t/.5)**2):lerp(115,98,((t-.5)/.5)**1.3)};
+/* a cosy park: outfield pulled in so the scoreboard and the stands feel close */
+const DZ=30,FENCE=a=>{a=Math.abs(a);const t=a/(Math.PI/4);return t<.5?lerp(90,87,(t/.5)**2):lerp(87,75,((t-.5)/.5)**1.3)};
 const polar=(a,r)=>new THREE.Vector3(Math.sin(a)*r,0,Math.cos(a)*r);
 const ring=(()=>{const ctl=[],q=Math.PI/4;
  for(let i=0;i<=26;i++){const a=lerp(q,-q,i/26);ctl.push(polar(a,FENCE(a)+1))}
  const foul=s=>{const dir=new THREE.Vector3(-s*Math.sin(q),0,Math.cos(q)),nor=new THREE.Vector3(-s*Math.cos(q),0,-Math.sin(q));return[60,28].map((m,i)=>dir.clone().multiplyScalar(m).addScaledVector(nor,[9,15][i]))};
  ctl.push(...foul(1));for(let i=0;i<=6;i++){const a=lerp(-Math.PI*.82,-Math.PI*1.18,i/6);ctl.push(polar(a,21))}ctl.push(...foul(-1).reverse());
  const cv=new THREE.CatmullRomCurve3(ctl,true,'centripetal');const pts=cv.getSpacedPoints(236).slice(0,-1);
- return pts.map((p,i)=>{const a=pts[(i+pts.length-1)%pts.length],b=pts[(i+1)%pts.length],t=b.clone().sub(a).normalize();let n=new THREE.Vector3(t.z,0,-t.x);if(n.dot(p.clone().sub(new THREE.Vector3(0,0,48)))<0)n.negate();
-  const ang=Math.atan2(p.x,p.z),out=clamp((Math.PI*.235-Math.abs(ang))*6+.5,0,1)*clamp((p.length()-70)/18,0,1);return{p,n,w:1-out,ang}})})();
+ return pts.map((p,i)=>{const a=pts[(i+pts.length-1)%pts.length],b=pts[(i+1)%pts.length],t=b.clone().sub(a).normalize();let n=new THREE.Vector3(t.z,0,-t.x);if(n.dot(p.clone().sub(new THREE.Vector3(0,0,36)))<0)n.negate();
+  const ang=Math.atan2(p.x,p.z),out=clamp((Math.PI*.235-Math.abs(ang))*6+.5,0,1)*clamp((p.length()-52)/14,0,1);return{p,n,w:1-out,ang}})})();
 function profile(w){const pts=[];let d=0,h=lerp(4,1.5,w);const riseL=lerp(.22,.46,w),riseU=lerp(.02,.62,w);pts.push([0,0],[0,h]);
  for(let k=0;k<S.L;k++){d+=S.LD;pts.push([d,h]);h+=riseL;pts.push([d,h])}
  d+=S.C;pts.push([d,h]);
@@ -416,12 +417,12 @@ const board=(()=>{const[c,x]=canvasOf(1536,720),t=tex(c);const grp=new THREE.Gro
  r.font='58px "Black Han Sans",sans-serif';r.textAlign='center';const ch=T.rune;[...ch].forEach((s,i)=>{r.save();r.rotate(i/ch.length*6.283);r.fillText(s,0,-442);r.restore()});
  r.beginPath();for(let i=0;i<=7;i++){const a=i*3*6.283/7-1.57;r[i?'lineTo':'moveTo'](Math.cos(a)*400,Math.sin(a)*400)}r.stroke();
  const rm=new THREE.Mesh(new THREE.PlaneGeometry(36,36),new THREE.MeshBasicMaterial({map:tex(rc),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));rm.position.set(0,80,150);rm.visible=T.wizard;grp.add(rm);
- scene.add(grp);
+ grp.position.z=-DZ;scene.add(grp);
  return{c,x,t,spell:rm,hat}})();
 
-const seriesBoard=(()=>{const[c,x]=canvasOf(1536,196),t=tex(c);const fr=new THREE.Mesh(new THREE.BoxGeometry(73,10,1.2),toon(0x1a1522));fr.position.set(0,54.2,152);scene.add(fr);const m=new THREE.Mesh(new THREE.PlaneGeometry(71.5,9.1),new THREE.MeshBasicMaterial({map:t,toneMapped:false,fog:false}));m.position.set(0,54.2,151.3);m.rotation.y=Math.PI;scene.add(m);return{c,x,t}})();
+const seriesBoard=(()=>{const[c,x]=canvasOf(1536,196),t=tex(c);const fr=new THREE.Mesh(new THREE.BoxGeometry(73,10,1.2),toon(0x1a1522));fr.position.set(0,54.2,152-DZ);scene.add(fr);const m=new THREE.Mesh(new THREE.PlaneGeometry(71.5,9.1),new THREE.MeshBasicMaterial({map:t,toneMapped:false,fog:false}));m.position.set(0,54.2,151.3-DZ);m.rotation.y=Math.PI;scene.add(m);return{c,x,t}})();
 /* entry boards beside the main screen: home on the left, away on the right as seen from the stands */
-const entryBoards=['home','away'].map(side=>{const[c,x]=canvasOf(512,744),t=tex(c),s=side==='home'?1:-1;const fr=new THREE.Mesh(new THREE.BoxGeometry(24.6,35.6,1),toon(0x1a1522));fr.position.set(s*51,31,137.6);scene.add(fr);const m=new THREE.Mesh(new THREE.PlaneGeometry(23.6,34.4),new THREE.MeshBasicMaterial({map:t,toneMapped:false,fog:false}));m.position.set(s*51,31,137);m.rotation.y=Math.PI;scene.add(m);return{side,c,x,t}});
+const entryBoards=['home','away'].map(side=>{const[c,x]=canvasOf(512,744),t=tex(c),s=side==='home'?1:-1;const fr=new THREE.Mesh(new THREE.BoxGeometry(24.6,35.6,1),toon(0x1a1522));fr.position.set(s*51,31,137.6-DZ);scene.add(fr);const m=new THREE.Mesh(new THREE.PlaneGeometry(23.6,34.4),new THREE.MeshBasicMaterial({map:t,toneMapped:false,fog:false}));m.position.set(s*51,31,137-DZ);m.rotation.y=Math.PI;scene.add(m);return{side,c,x,t}});
 /* catch fence raised during play */
 const fence=(()=>{const[c,x]=canvasOf(128,128);x.strokeStyle='#d8dde6';x.lineWidth=5;x.beginPath();x.moveTo(0,0);x.lineTo(128,128);x.moveTo(128,0);x.lineTo(0,128);x.stroke();const t=tex(c,true);t.repeat.set(ring.length*.9,2);const P=[],UV=[],I=[],N=ring.length;for(let i=0;i<=N;i++){const a=ring[i%N],h=lerp(4,1.5,a.w),q=a.p.clone().addScaledVector(a.n,-.03);P.push(q.x,h,q.z,q.x,h+4.6,q.z);UV.push(i/N,0,i/N,1);if(i<N){const b=i*2;I.push(b,b+2,b+1,b+1,b+2,b+3)}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(UV,2));g.setIndex(I);const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:t,transparent:true,alphaTest:.3,side:THREE.DoubleSide,depthWrite:false}));m.visible=false;scene.add(m);return m})();
 /* light towers */
@@ -600,7 +601,7 @@ function rosterSelect(sel,team,pick){sel.textContent='';sel.add(new Option('선�
 function typedNum(input,sel){input.value=input.value.replace(/\D/g,'');if(!sel.value.startsWith(input.value+' '))sel.value=''}
 function setBack(name,num){const nick=ROSTER_NAMES.has(name)?name:'',n=String(num).replace(/\D/g,'').slice(0,2),was=me.num+me.nick;me.nick=nick;store.set('nick',nick);if(n){me.num=n;store.set('num',n)}if(was!==me.num+me.nick)Net?.look();dress(hero,me.u,me.num,me.nick)}
 function wear(u){me.u=u;store.set('uniform-'+CH,u.id);Net?.look();dress(hero,u,me.num,me.nick);FX.emit(hero.position.x,hero.position.y+1.2,hero.position.z,u.trim,40,4,.7,.4);Audio_.chime()}
-const nav={target:null,yaw:0,pitch:.12,dist:innerHeight>innerWidth?10.5:8.5,vy:0,y:0,walk:0,cheer:0,cheerHold:false,tapT:0,closeup:0};let gameFov=0;const GAME_LOOK=new THREE.Vector3(0,11,62);const NAV_HOME={pitch:nav.pitch,dist:nav.dist};
+const nav={target:null,yaw:0,pitch:.12,dist:innerHeight>innerWidth?10.5:8.5,vy:0,y:0,walk:0,cheer:0,cheerHold:false,tapT:0,closeup:0};let gameFov=0;const GAME_LOOK=new THREE.Vector3(0,11,52);const NAV_HOME={pitch:nav.pitch,dist:nav.dist};
 /* the field opens only between innings while a game is on */
 let breakUntil=0;const fenceOpen=()=>!fence.visible||(DEMO?Game.rest:Date.now()<breakUntil);
 function noteBreak(prev,st){if(DEMO)return;if(st.o>=3||(prev&&(prev.inn!==st.inn||prev.top!==st.top)))breakUntil=Date.now()+90000;else if(st.b+st.s>0)breakUntil=0}
@@ -784,7 +785,7 @@ async function poll(){let wait=POLL_MS;try{const d=await getState();if(Date.now(
  catch(e){live.fail=(live.fail||0)+1;wait=20000;if(live.status==='live')$('mode').innerHTML='<b>연결 재시도 중</b> 마지막 정보를 보여 드립니다';else startDemo()}
  setTimeout(poll,wait)}
 /* ---------- demo only: characters replay a game on the field, from recorded plays or a sample ---------- */
-const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4],2:[0,-1.5],3:[-16.5,24],4:[-8,33],5:[16.5,24],6:[8,33],7:[33,62],8:[0,80],9:[-33,62]},LAND={lf:[34,58],lc:[18,76],cf:[0,86],rc:[-18,76],rf:[-34,58]},DUG={home:[-23,13],away:[23,13]},COVER={3:1,4:2,6:2,5:3,2:0,1:1},POSN={1:'투수',2:'포수',3:'1루수',4:'2루수',5:'3루수',6:'유격수',7:'좌익수',8:'중견수',9:'우익수'},LABEL={hr:'홈런',triple:'3루타',double:'2루타',single:'안타',k:'삼진 아웃',bb:'볼넷',hbp:'몸에 맞는 공',error:'실책',fc:'야수선택',bunt:'번트 아웃',ground:'땅볼 아웃',fly:'뜬공 아웃',line:'직선타 아웃',dp:'병살타'},WORD={B:'볼',S:'스트라이크',F:'파울',W:'헛스윙',X:'타격'};
+const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4],2:[0,-1.5],3:[-16.5,24],4:[-8,33],5:[16.5,24],6:[8,33],7:[26,49],8:[0,62],9:[-26,49]},LAND={lf:[26,45],lc:[14,58],cf:[0,66],rc:[-14,58],rf:[-26,45]},DUG={home:[-23,13],away:[23,13]},COVER={3:1,4:2,6:2,5:3,2:0,1:1},POSN={1:'투수',2:'포수',3:'1루수',4:'2루수',5:'3루수',6:'유격수',7:'좌익수',8:'중견수',9:'우익수'},LABEL={hr:'홈런',triple:'3루타',double:'2루타',single:'안타',k:'삼진 아웃',bb:'볼넷',hbp:'몸에 맞는 공',error:'실책',fc:'야수선택',bunt:'번트 아웃',ground:'땅볼 아웃',fly:'뜬공 아웃',line:'직선타 아웃',dp:'병살타'},WORD={B:'볼',S:'스트라이크',F:'파울',W:'헛스윙',X:'타격'};
  let on=false,rest=false,cam=false,stay=false,idle=0,actors=new Set(),timers=[],flight=null,team={},D=null,batter=null,bases=[null,null,null,null],lineup={home:{},away:{}},S,focus=new THREE.Vector3(0,1,18),frame=0;
  const ball=new THREE.Mesh(new THREE.SphereGeometry(.2,14,10),glow(0xffffff));ball.visible=false;scene.add(ball);
  const fresh=()=>({inn:1,top:true,home:0,away:0,hH:0,aH:0,hE:0,aE:0,b:0,s:0,o:0,lines:{home:{},away:{}},plays:[],n:0,batter:null,pitcher:null});
@@ -991,7 +992,7 @@ const composer=(()=>{if(innerWidth<0)return null;const rt=new THREE.WebGLRenderT
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();
 const camPos=new THREE.Vector3(),camLook=new THREE.Vector3();let prev=performance.now(),acc=0,frames=0;const clock={t:0};
 hero.position.set(0,0,18);{const sa=(CH==='kt'?-1:1)*Math.PI*.3,a=ring.reduce((p,r)=>Math.abs(wrap(r.ang-sa))<Math.abs(wrap(p.ang-sa))?r:p,ring[0]);const q=a.p.clone().addScaledVector(a.n,9);hero.position.copy(q);nav.y=groundAt(q.x,q.z);hero.rotation.y=Math.atan2(-q.x,40-q.z);nav.yaw=hero.rotation.y+Math.PI}
-let gateAngle=0;const boardCam=new THREE.Vector3(0,32,innerHeight>innerWidth?38:58),boardLook=new THREE.Vector3(0,36,150);
+let gateAngle=0;const boardCam=new THREE.Vector3(0,32,(innerHeight>innerWidth?38:58)-DZ),boardLook=new THREE.Vector3(0,36,150-DZ);
 function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/1000,.05);prev=now;clock.t+=dt;const t=clock.t;
  /* movement */
  let ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0),iz=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0),len=Math.hypot(ix,iz);if(!len&&Joy.active){ix=Joy.x;iz=-Joy.y;len=Math.min(1,Math.hypot(ix,iz)*1.25)}if(len>.08){nav.target=null;marker.visible=false}
