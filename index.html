@@ -105,6 +105,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #gate h1 em{font-style:normal;color:var(--kt-red);text-shadow:0 0 28px #e3122c}
 #gate p{font-size:15px;line-height:1.6;margin:12px 0 16px;color:#e9e0f0}
 #gate label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px}
+#scoreFx{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%);z-index:30;pointer-events:none;text-align:center;padding:14px 34px 12px;border-radius:14px;color:#fff;animation:fxIn 3.6s cubic-bezier(.2,1.4,.4,1) both}
+#scoreFx b{display:block;font:400 clamp(44px,11vw,96px)/1 "Black Han Sans",sans-serif;letter-spacing:1px;text-shadow:0 4px 0 #000b,0 0 3px #000,0 0 10px #000c,0 0 30px var(--gold);-webkit-text-stroke:1.5px #0008}
+#scoreFx span,#scoreFx small{text-shadow:0 2px 3px #000,0 0 8px #000c}
+#scoreFx span{display:block;margin-top:6px;font:400 clamp(17px,4vw,26px) "Black Han Sans",sans-serif}#scoreFx small{display:block;margin-top:4px;font-size:13px;opacity:.85}
+#scoreFx.mine{background:radial-gradient(ellipse at center,#000000b0,#0000 72%)}#scoreFx.mine b{color:var(--gold)}
+#scoreFx.theirs{animation-duration:2.6s;background:#000a;padding:8px 20px}#scoreFx.theirs b{font-size:clamp(24px,6vw,40px);text-shadow:none;color:#d4c9df}#scoreFx.theirs span{font-size:15px}
+@keyframes fxIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}10%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}16%{transform:translate(-50%,-50%) scale(1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}
+@media (prefers-reduced-motion:reduce){#scoreFx{animation:none}}
 #innPick{min-height:38px;padding:3px 6px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px}#numPick,#editPick{width:100%;box-sizing:border-box;padding:9px 10px;margin-bottom:10px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:5px;font:inherit;font-size:13px}#editPick{margin:3px 0 0}#gate .backRow{display:grid;grid-template-columns:1fr 76px;gap:8px}#numIn{text-align:center}#numIn{width:100%;box-sizing:border-box;padding:11px 12px;margin-bottom:10px;background:#ffffff14;border:1px solid var(--line);border-radius:5px}
 #enter{width:100%;padding:13px;border-radius:5px;background:var(--kt-red);font:400 20px var(--display)}
 #gate footer{margin-top:12px;font-size:11px;line-height:1.5;color:var(--dim)}
@@ -151,6 +159,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
   <button id="soundBtn" aria-expanded="false">소리 설정<kbd>M</kbd></button>
 </nav>
 
+<div id="scoreFx" hidden aria-live="polite"><b></b><span></span><small></small></div>
 <section id="gate">
   <div id="gateBox">
     <h1><span id="titleA"></span><br><em id="titleB"></em></h1>
@@ -667,7 +676,10 @@ function applyState(st,silent){if(!st)return;const prev=live.state;live.state=st
  if(silent){live.lines=[];st.plays.slice(-12).forEach(p=>addFeed(p.text))}else fresh.forEach(p=>{addFeed(p.text);if(!live.first)onPlay(p,st)});
  const ktBat=(st.top?'away':'home')===(live.teams.ktHome?'home':'away');
  if(prev&&!silent){const ktNow=live.teams.ktHome?st.home:st.away,ktWas=live.teams.ktHome?prev.home:prev.away,opNow=live.teams.ktHome?st.away:st.home,opWas=live.teams.ktHome?prev.away:prev.home;
-  const hrNow=fresh.some(p=>classify(p.text)==='hr');if(ktNow>ktWas&&!hrNow){shout('득점!');firework();crowdBurst(1)}else if(opNow>opWas){crowdBurst(.04,2.8)}}
+  const hrPlay=fresh.find(p=>classify(p.text)==='hr'),hrNow=!!hrPlay;if(ktNow>ktWas&&!hrNow){shout('득점!');firework();crowdBurst(1)}else if(opNow>opWas){crowdBurst(.04,2.8)}
+  const mine=ktNow>ktWas,runs=mine?ktNow-ktWas:opNow-opWas;
+  if(runs>0){const who=hrPlay?hrPlay.text.split(/[\s:]/)[0]:'',line=`${live.teams.away} ${st.away} : ${st.home} ${live.teams.home}`;
+   scoreFx(mine,hrNow?(runs>=4?'만루 홈런!':'홈런!'):'득점!',hrNow?`${who} ${['솔로','투런','스리런','그랜드슬램'][Math.min(runs,4)-1]} 홈런`:`${runs}점 추가`,line)}}
  if(st.batter&&st.batter.code!==live.last.b){live.last.b=st.batter.code;announce('batter',st.batter);Song.batter(st.batter.side==='home'?live.teams.homeCode:live.teams.awayCode,st.batter.name)}
  if(st.pitcher&&st.pitcher.code!==live.last.p){const changed=!!live.last.p;live.last.p=st.pitcher.code;setTimeout(()=>announce('pitcher',st.pitcher,changed),st.batter&&!silent?2600:0)}
  live.first=false;renderHud();}
@@ -681,6 +693,8 @@ function onPlay(p,st){const c=classify(p.text),ktBat=(st.top?'away':'home')===(l
 let burstUntil=0,burstLevel=.25;function crowdBurst(v,sec=4){burstLevel=v;burstUntil=performance.now()+sec*1000;Audio_.excite(Math.min(v,1))}
 let takeoverTimer;function takeover(o,ms){live.takeover=o;renderBoard();clearTimeout(takeoverTimer);takeoverTimer=setTimeout(()=>{live.takeover=null;renderBoard()},ms)}
 function shout(s){takeover({shout:s},2600)}
+/* a big line across the screen whenever runs come in; the other team's runs get a quiet version */
+let scoreFxTimer;function scoreFx(mine,title,sub,line){const el=$('scoreFx');el.className='';void el.offsetWidth;el.className=mine?'mine':'theirs';el.querySelector('b').textContent=mine?title:`상대 ${title.replace('!','')}`;el.querySelector('span').textContent=sub;el.querySelector('small').textContent=line;el.hidden=false;clearTimeout(scoreFxTimer);scoreFxTimer=setTimeout(()=>el.hidden=true,mine?3600:2600)}
 function announce(role,p,changed){const u=teamU(p.side),src=Portrait.of({key:p.code,role,num:p.num,u,name:p.name,hand:p.hand,style:p.style});const ktSide=live.teams.ktHome?'home':'away';
  const img=loadImg(src);live['img'+role]=img;
  takeover({img,kt:p.side===ktSide,kind:role==='batter'?`${p.order?p.order+'번 ':''}타자 등장`:changed?'투수 교체':'투수 등장',name:p.name,meta:[p.num&&`등번호 ${p.num}`,role==='batter'?p.pos:'',p.hand&&`${p.hand}${role==='batter'?'타':'투'}`,p.style,role==='pitcher'&&p.era&&`ERA ${p.era}`,p.line].filter(Boolean).join('   ')},4800);
