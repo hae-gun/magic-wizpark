@@ -84,6 +84,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 @keyframes hotGlow{50%{box-shadow:0 0 30px #ffc861cc}}@keyframes hotShine{55%,100%{transform:translateX(100%)}}@keyframes hotShake{0%,84%,100%{transform:none}87%{transform:rotate(-1.4deg) scale(1.04)}91%{transform:rotate(1.4deg) scale(1.04)}95%{transform:rotate(-.8deg)}}@keyframes hotBadge{50%{transform:scale(1.14)}}
 @media (prefers-reduced-motion:reduce){#benchHot,#benchHot b,#benchHot::after,#actBtn.hot::after,#benchJoin{animation:none}}
 .backEdit{grid-column:1/-1;display:grid;grid-template-columns:1fr 76px;gap:8px;padding:2px 2px 8px}.backEdit label{display:block;font-size:11px;color:var(--dim)}.backEdit input{width:100%;box-sizing:border-box;margin-top:3px;padding:8px 10px;background:#ffffff14;border:1px solid var(--line);border-radius:5px;color:#fff}
+.volRow{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) 1.4fr 34px;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line)}.volRow span b{display:block;font-size:14px}.volRow small{font-size:11px;color:var(--dim)}.volRow input{width:100%;accent-color:var(--gold)}.volRow output{font-size:13px;text-align:right}.volAll{grid-column:1/-1;justify-content:center}#soundBtn.muted{opacity:.6;text-decoration:line-through}
 .pick{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px;border-radius:5px;border:1px solid transparent;font-size:12px;line-height:1.25;text-align:center;min-width:0}
 .pick:hover{background:#ffffff14}
 .pick[aria-pressed=true]{border-color:var(--gold);background:#ffc86118}
@@ -146,7 +147,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
   <button id="gameBtn" hidden aria-pressed="true">내 캐릭터 보기<kbd>V</kbd></button>
   <button id="boardBtn" aria-pressed="false">전광판 보기<kbd>B</kbd></button>
   <button id="songBtn" aria-pressed="true">응원가 끄기<kbd>L</kbd></button>
-  <button id="soundBtn">소리 켬<kbd>M</kbd></button>
+  <button id="soundBtn" aria-expanded="false">소리 설정<kbd>M</kbd></button>
 </nav>
 
 <section id="gate">
@@ -304,7 +305,7 @@ const fieldLight=new THREE.PointLight(0xfff2e4,.5,240,1.1);fieldLight.position.s
  const paint=()=>{const now=new Date(Date.now()+9*36e5),h=Number.isFinite(forced)?forced%24:now.getUTCHours()+now.getUTCMinutes()/60;let i=0;while(K[i+1][0]<=h&&i<K.length-2)i++;
   const A=K[i],B=K[i+1],k=(h-A[0])/(B[0]-A[0]);m.uniforms.uHor.value.set(...mixV(A[1],B[1],k));m.uniforms.uTop.value.set(...mixV(A[2],B[2],k));m.uniforms.uAur.value=lerp(A[8],B[8],k);
   hemi.intensity=lerp(A[3],B[3],k);hemi.color.setHex(mixC(0xa59ae0,0xcfe4ff,clamp(hemi.intensity*2-1,0,1)));sun.intensity=lerp(A[4],B[4],k);sun.color.setHex(mixC(A[5],B[5],k));scene.fog.color.setHex(mixC(A[6],B[6],k));
-  const st=lerp(A[7],B[7],k);starMat.opacity=.85*st;moon.material.opacity=Math.min(1,st*1.4);moon.visible=bite.visible=st>.05;bite.material.color.copy(c1.set(scene.fog.color).lerp(c2.setRGB(...m.uniforms.uTop.value.toArray()),.5))};
+  const st=lerp(A[7],B[7],k);{const b=scene.userData.bloom;if(b){b.strength=lerp(.12,.42,Math.min(1,st*1.5));b.threshold=lerp(.99,.93,Math.min(1,st*1.5))}}starMat.opacity=.85*st;moon.material.opacity=Math.min(1,st*1.4);moon.visible=bite.visible=st>.05;bite.material.color.copy(c1.set(scene.fog.color).lerp(c2.setRGB(...m.uniforms.uTop.value.toArray()),.5))};
  paint();setInterval(paint,30000);
 }
 
@@ -387,8 +388,8 @@ function nearestRing(x,z){let b=0,bd=1e9;for(let i=0;i<ring.length;i++){const r=
  const t=tex(c);const m=new THREE.Mesh(new THREE.PlaneGeometry(W,W),new THREE.MeshLambertMaterial({map:t}));m.rotation.x=-Math.PI/2;m.material.side=THREE.DoubleSide;m.position.set(0,-.02,W/2-90);m.receiveShadow=true;scene.add(m);scene.userData.field=m;
  const base=(x0,z0)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(.55,.1,.55),glow(0xffffff));b.rotation.y=Math.PI/4;b.position.set(x0,.05,z0);scene.add(b)};
  base(d,d);base(0,d*2);base(-d,d);base(0,0);
- const mound=new THREE.Mesh(new THREE.SphereGeometry(2.8,24,8,0,6.3,0,1.1),toon(0xb07a4a));mound.scale.y=.17;mound.position.set(0,-.2,18.4);scene.add(mound);
- for(const s of[1,-1]){const pole=new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,20,8),glow(0xffc861));pole.position.set(s*69.5,10,69.5);scene.add(pole)}
+ const mound=new THREE.Mesh(new THREE.SphereGeometry(2.8,24,8,0,6.3,0,1.1),new THREE.MeshLambertMaterial({color:0x5c3a20}));mound.scale.y=.17;mound.position.set(0,-.2,18.4);scene.add(mound);
+ for(const s of[1,-1]){const pole=new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,20,8),glow(0xffc861));pole.position.set(s*FENCE(Math.PI/4)/Math.SQRT2,10,FENCE(Math.PI/4)/Math.SQRT2);scene.add(pole)}
  /* dugouts: home on the first base side */
  for(const s of[1,-1]){const a=new THREE.Vector3(s*-27,0,20),g=new THREE.Mesh(new THREE.BoxGeometry(2,2.1,17),toon(s>0?0xc80f27:0x223a70));g.position.copy(a).add(new THREE.Vector3(s*-6.2,.2,-7));g.rotation.y=s*-Math.PI/4;scene.add(g)}
 })();
@@ -574,16 +575,19 @@ function firework(colorA='#ff4259',colorB='#ffc861',amt=7){for(let i=0;i<amt;i++
 const shockRings=[];function shock(x,y,z,color,size=20){const m=new THREE.Mesh(new THREE.RingGeometry(.86,1,48),new THREE.MeshBasicMaterial({color,transparent:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.set(x,y,z);scene.add(m);shockRings.push({m,t:0,size})}
 
 /* ---------- audio: everything synthesised on the spot, no club songs ---------- */
-const Audio_=(()=>{let ctx,master,crowd,on=false;
+/* three volumes the viewer sets: cheer songs (YouTube), the crowd around you, other effects */
+const VOL={song:+store.get('vol-song',80),crowd:+store.get('vol-crowd',70),fx:+store.get('vol-fx',80)};
+const Audio_=(()=>{let ctx,master,crowd,crowdBus,fx,on=false;
  const noiseBuf=()=>{const b=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b};
- const burst=(freq,q,dur,gain,type='bandpass')=>{if(!on)return;const s=ctx.createBufferSource();s.buffer=noiseBuf();const f=ctx.createBiquadFilter();f.type=type;f.frequency.value=freq;f.Q.value=q;const g=ctx.createGain();g.gain.setValueAtTime(gain,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);s.connect(f).connect(g).connect(master);s.start();s.stop(ctx.currentTime+dur)};
+ const burst=(freq,q,dur,gain,type='bandpass')=>{if(!on)return;const s=ctx.createBufferSource();s.buffer=noiseBuf();const f=ctx.createBiquadFilter();f.type=type;f.frequency.value=freq;f.Q.value=q;const g=ctx.createGain();g.gain.setValueAtTime(gain,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);s.connect(f).connect(g).connect(fx);s.start();s.stop(ctx.currentTime+dur)};
  return{get on(){return on},
-  toggle(){if(!ctx){ctx=new(window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=.5;master.connect(ctx.destination);const s=ctx.createBufferSource();s.buffer=noiseBuf();s.loop=true;const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.value=720;f.Q.value=.55;crowd=ctx.createGain();crowd.gain.value=.06;s.connect(f).connect(crowd).connect(master);s.start()}
+  toggle(){if(!ctx){ctx=new(window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=.5;master.connect(ctx.destination);fx=ctx.createGain();fx.connect(master);crowdBus=ctx.createGain();crowdBus.connect(master);Audio_.vol();const s=ctx.createBufferSource();s.buffer=noiseBuf();s.loop=true;const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.value=720;f.Q.value=.55;crowd=ctx.createGain();crowd.gain.value=.06;s.connect(f).connect(crowd).connect(crowdBus);s.start()}
    on=!on;if(ctx.state==='suspended')ctx.resume();master.gain.value=on?.5:0;return on},
+  vol(){if(!ctx)return;fx.gain.value=(VOL.fx/100)**1.6;crowdBus.gain.value=(VOL.crowd/100)**1.6*1.4},
   excite(v){if(crowd)crowd.gain.setTargetAtTime(.05+v*.32,ctx.currentTime,.3)},
   clap(){burst(1900,1.1,.07,.5)},bonk(){burst(520,2.4,.09,.7)},swish(){burst(2500,.8,.2,.18,'highpass')},
   boom(){burst(140,.8,.8,.9,'lowpass')},
-  chime(){if(!on)return;[660,880,1175].forEach((f,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.value=f;const t=ctx.currentTime+i*.07;g.gain.setValueAtTime(.13,t);g.gain.exponentialRampToValueAtTime(.001,t+.45);o.connect(g).connect(master);o.start(t);o.stop(t+.5)})}}})();
+  chime(){if(!on)return;[660,880,1175].forEach((f,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.value=f;const t=ctx.currentTime+i*.07;g.gain.setValueAtTime(.13,t);g.gain.exponentialRampToValueAtTime(.001,t+.45);o.connect(g).connect(fx);o.start(t);o.stop(t+.5)})}}})();
 
 /* ---------- player ---------- */
 const me={u:UA(store.get('uniform-'+CH,T.homeKit)),gear:GEARS.some(g=>g.id===store.get('gear','wizbat'))?store.get('gear','wizbat'):'wizbat',nick:store.get('nick',''),num:String(10+hash(Math.random())%89)};
@@ -657,6 +661,7 @@ const live={teams:{home:'KT',away:'삼성',ktHome:CH==='kt',homeCode:'KT',awayCo
 const teamU=side=>{const kt=live.teams.ktHome?side==='home':side==='away';return kt?U(side==='home'?T.homeKit:T.awayKit):(side==='home'?T.oppHome:T.oppAway)};
 function applyState(st,silent){if(!st)return;const prev=live.state;live.state=st;
  /* new plays */
+ if(prev&&(st.o>=3&&prev.o<3||prev.inn!==st.inn||prev.top!==st.top))Song.stop();
  noteBreak(prev,st);const fresh=st.plays.filter(p=>!live.seen.has(p.id));fresh.forEach(p=>live.seen.add(p.id));
  if(silent){live.lines=[];st.plays.slice(-12).forEach(p=>addFeed(p.text))}else fresh.forEach(p=>{addFeed(p.text);if(!live.first)onPlay(p,st)});
  const ktBat=(st.top?'away':'home')===(live.teams.ktHome?'home':'away');
@@ -757,13 +762,13 @@ const Demo=(()=>{const P=(pcode,name,posName,batOrder)=>({pcode,name,posName,bat
 /* cheer songs: the official YouTube player, shown small as its terms require */
 const clip=c=>({videoId:c.videoId,startSeconds:c.start,...(c.end>c.start?{endSeconds:c.end}:{})});
 const Song=(()=>{let list=new Map(),yt=null,ready=false,current=null,off=false,loading=false;const box=$('song');
- const load=()=>{if(loading)return;loading=true;window.onYouTubeIframeAPIReady=()=>{yt=new YT.Player('ytBox',{width:208,height:200,playerVars:{playsinline:1,rel:0,controls:1},events:{onReady(){ready=true;play(current)},onStateChange(e){if(e.data===0&&current)yt.loadVideoById(clip(current))},onError(){box.hidden=true}}})};const t=document.createElement('script');t.src='https://www.youtube.com/iframe_api';t.onerror=()=>{loading=false};document.head.append(t)};
- const play=c=>{if(!c||off||!Audio_.on)return;box.hidden=false;$('songName').textContent=`${c.name} 응원가`;if(!ready){load();return}yt.loadVideoById(clip(c))};
+ const load=()=>{if(loading)return;loading=true;window.onYouTubeIframeAPIReady=()=>{yt=new YT.Player('ytBox',{width:208,height:200,playerVars:{playsinline:1,rel:0,controls:1},events:{onReady(){ready=true;yt.setVolume(VOL.song);play(current)},onStateChange(e){if(e.data===0&&current)yt.loadVideoById(clip(current))},onError(){box.hidden=true}}})};const t=document.createElement('script');t.src='https://www.youtube.com/iframe_api';t.onerror=()=>{loading=false};document.head.append(t)};
+ const play=c=>{if(!c||off||!Audio_.on||!VOL.song)return;box.hidden=false;$('songName').textContent=`${c.name} 응원가`;if(!ready){load();return}yt.loadVideoById(clip(c))};
  const hide=()=>{box.hidden=true;if(ready)yt.stopVideo()},stop=()=>{current=null;hide()};
  const toggle=()=>{off=!off;store.set('songOff',off?'1':'');const b=$('songBtn');b.setAttribute('aria-pressed',!off);b.firstChild.nodeValue=off?'응원가 켜기':'응원가 끄기';if(off)hide();else play(current)};
  $('songOff').onclick=toggle;$('songBtn').onclick=toggle;if(store.get('songOff','')==='1')toggle();
  return{async refresh(){try{const r=await fetch(API+'/cheers.json');if(!r.ok)return;const d=await r.json();list=new Map(d.cheers.map(c=>[c.team+':'+c.name,c]))}catch{}},
-  toggle,pause:hide,batter(code,name){if(live.status!=='live'&&!DEMO){return}const c=list.get(code+':'+name);if(!c){stop();return}if(current?.videoId===c.videoId&&current.start===c.start&&current.end===c.end)return;current=c;play(c)},stop,resume(){play(current)}}})();
+  toggle,pause:hide,batter(code,name){if(live.status!=='live'&&!DEMO){return}const c=list.get(code+':'+name);if(!c){stop();return}if(current?.videoId===c.videoId&&current.start===c.start&&current.end===c.end)return;current=c;play(c)},stop,resume(){play(current)},vol(){if(ready)yt.setVolume(VOL.song);if(!VOL.song)hide();else if(current&&box.hidden&&Audio_.on)play(current)}}})();
 
 /* live data: one static file refreshed by a single collector, so visitors never touch Naver */
 const API=new URLSearchParams(location.search).get('api')||'https://api.gohaeyaji.com/wiz';const kst=()=>new Date(Date.now()+9*36e5).toISOString().slice(0,10);
@@ -882,7 +887,7 @@ function noteVisit(){const d=kst(),last=store.get('lastVisit',''),first=last!==d
 function boot(){noteVisit();Song.refresh();setInterval(Song.refresh,60000);if(DEMO){Game.start();return}live.status='connecting';poll()}
 
 /* ---------- input ---------- */
-const keys={};addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;keys[e.code]=true;if(e.code==='Space'){e.preventDefault();startCheer()}if(e.code==='Escape')closeDrawer();if(e.code==='KeyU')toggleDrawer('ward');if(e.code==='KeyG')toggleDrawer('gear');if(e.code==='KeyT')toggleDrawer('seat');if(e.code==='KeyC')toggleDrawer('msg');if(e.code==='KeyX')toggleDrawer('act');if(e.code==='KeyB')toggleBoardView();if(e.code==='KeyV'&&Game.on())Game.toggle();if(e.code==='KeyL')$('songBtn').click();if(e.code==='KeyM')$('soundBtn').click()});
+const keys={};addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;keys[e.code]=true;if(e.code==='Space'){e.preventDefault();startCheer()}if(e.code==='Escape')closeDrawer();if(e.code==='KeyU')toggleDrawer('ward');if(e.code==='KeyG')toggleDrawer('gear');if(e.code==='KeyT')toggleDrawer('seat');if(e.code==='KeyC')toggleDrawer('msg');if(e.code==='KeyX')toggleDrawer('act');if(e.code==='KeyB')toggleBoardView();if(e.code==='KeyV'&&Game.on())Game.toggle();if(e.code==='KeyL')$('songBtn').click();if(e.code==='KeyM')muteAll()});
 addEventListener('keyup',e=>{keys[e.code]=false;if(e.code==='Space')nav.cheerHold=false});
 /* on-screen stick: on by default where the main pointer is a finger, remembered per browser */
 const Joy=(()=>{const el=$('joystick'),knob=el.firstChild,R=46,DEAD=.15;let id=null,cx=0,cy=0,x=0,y=0,on=store.get('joystick','')?store.get('joystick','')==='1':matchMedia('(pointer: coarse)').matches;
@@ -910,7 +915,7 @@ const cheerBtn=$('cheer');cheerBtn.addEventListener('pointerdown',e=>{e.preventD
 let drawer=null,drawerCat='all',drawerTeam=CH;const swatch=(u)=>{const[c,x]=canvasOf(128,128);drawJersey(x,128,u,'','');x.fillStyle=u.sleeve;x.fillRect(0,0,20,128);x.fillRect(108,0,20,128);c.setAttribute('aria-hidden','true');return c};
 const gearIcon=id=>{const K=T.kit;const[c,x]=canvasOf(128,128);x.fillStyle='#ffffff10';x.fillRect(0,0,128,128);x.save();x.translate(64,64);x.lineCap='round';const line=(col,w,a,b,d,e)=>{x.strokeStyle=col;x.lineWidth=w;x.beginPath();x.moveTo(a,b);x.lineTo(d,e);x.stroke()};
  ({none(){x.fillStyle='#f6d2b4';x.beginPath();x.arc(-12,0,18,0,6.3);x.arc(14,0,18,0,6.3);x.fill()},balloon(){line(K.a,15,-16,38,-4,-38);line(K.a,15,18,38,8,-38)},clapper(){x.fillStyle=K.c;x.rotate(.25);x.fillRect(-16,-38,14,76);x.fillStyle=K.a;x.fillRect(4,-38,14,76)},towel(){x.fillStyle=K.a;x.fillRect(-42,-15,84,30);x.fillStyle='#fff';x.fillRect(-42,-15,84,5)},muffler(){for(let i=-4;i<4;i++){x.fillStyle=i%2?K.a:K.b;x.fillRect(i*11,-11,11,22)}},flag(){x.save();x.translate(-24,-44);x.scale(.5,.5);K.flag(x);x.restore();line('#ddd',5,-24,44,-24,-44)},led(){line(K.fx,12,0,38,0,-36);line('#fff',3,0,28,0,-30)},wizbat(){line(T.batColor[0],12,-30,34,-6,-36);line(T.batColor[0],12,30,34,6,-36);line(K.a,12,-13,-16,-11,-11);line(K.a,12,13,-16,11,-11);line(T.batColor[2],12,-16,-7,-14,-2);line(T.batColor[2],12,16,-7,14,-2)},pom(){for(let i=0;i<30;i++)line(i%3?K.a:K.c,4,0,0,Math.cos(i)*32,Math.sin(i)*32)},wand(){line('#6a4630',6,-24,36,18,-20);x.fillStyle='#ffd98c';x.font='40px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('✦',26,-28)}})[id]();x.restore();return c};
-function toggleDrawer(kind){const d=$('drawer');for(const[k,b]of[['ward','wardBtn'],['gear','gearBtn'],['seat','seatBtn'],['msg','msgBtn'],['act','actBtn']])$(b).setAttribute('aria-expanded',k===kind&&drawer!==kind);if(drawer===kind){drawer=null;d.hidden=true;nav.closeup=0;return}drawer=kind;d.hidden=false;const G=$('grid');G.textContent='';
+function toggleDrawer(kind){const d=$('drawer');for(const[k,b]of[['ward','wardBtn'],['gear','gearBtn'],['seat','seatBtn'],['msg','msgBtn'],['act','actBtn'],['sound','soundBtn']])$(b).setAttribute('aria-expanded',k===kind&&drawer!==kind);if(drawer===kind){drawer=null;d.hidden=true;nav.closeup=0;return}drawer=kind;d.hidden=false;const G=$('grid');G.textContent='';
  const pick=(label,small,node,on,fn,cls='')=>{const b=document.createElement('button');b.className='pick '+cls;b.setAttribute('aria-pressed',on);if(node)b.append(node);const t=document.createElement('span');t.textContent=label;const s=document.createElement('small');s.textContent=small;b.append(t,s);b.onclick=()=>{fn();G.querySelectorAll('.pick').forEach(p=>p.setAttribute('aria-pressed',p===b));};G.append(b)};
  if(kind==='ward'){$('drawerT').textContent='유니폼 옷장';$('drawerS').textContent=`${UNIFORMS.length}벌. 사진이 아니라 기사와 상품명의 글 설명으로 만든 재해석입니다. 배색은 실제와 다를 수 있습니다.`;nav.closeup=1;
   const show=cat=>{drawerCat=cat;G.textContent='';const be=document.createElement('div');be.className='backEdit';be.innerHTML='<label>유니폼 선수<select id="editPick"></select></label><label>등번호<input id="editNum" inputmode="numeric" maxlength="2" autocomplete="off"></label>';G.append(be);const ep=$('editPick'),eb=$('editNum');eb.value=me.num;rosterSelect(ep,drawerTeam,(n,name)=>{if(n)eb.value=n;setBack(name,eb.value)});eb.oninput=()=>{typedNum(eb,ep);setBack(ep.value.split(' ')[1]||'',eb.value)};eb.onblur=()=>{eb.value=me.num};const pool=drawerTeam==='samsung'?SS_UNIFORMS:KT_UNIFORMS;if(cat!=='all'&&!pool.some(u=>u.c===cat))cat=drawerCat='all';$('drawerS').textContent=`KT ${KT_UNIFORMS.length}벌, 삼성 ${SS_UNIFORMS.length}벌. 글 자료를 바탕으로 재해석해 실제와 다를 수 있습니다.`;const teams=document.createElement('div');teams.className='tabs teamTabs';[['kt','KT 위즈'],['samsung','삼성 라이온즈']].forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.className='tab';b.setAttribute('aria-pressed',id===drawerTeam);b.onclick=()=>{drawerTeam=id;show('all')};teams.append(b)});G.append(teams);const tabs=document.createElement('div');tabs.className='tabs';UNIFORM_CATS.filter(([id])=>id==='all'||pool.some(u=>u.c===id)).forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.className='tab';b.setAttribute('aria-pressed',id===cat);b.onclick=()=>show(id);tabs.append(b)});G.append(tabs);
@@ -919,11 +924,16 @@ function toggleDrawer(kind){const d=$('drawer');for(const[k,b]of[['ward','wardBt
  if(kind==='gear'){$('drawerT').textContent='응원도구';$('drawerS').textContent='고른 뒤 응원 버튼을 누르거나 Space를 누르고 있으세요.';GEARS.forEach(g=>pick(g.n,g.s,gearIcon(g.id),g.id===me.gear,()=>{equip(g.id);startCheer();nav.cheerHold=false}))}
  if(kind==='msg'){$('drawerT').textContent='응원 메시지';$('drawerS').textContent='누르면 내 캐릭터 위 말풍선으로 나오고 근처 사람들에게 보입니다.';T.msgs.forEach((m,i)=>pick(m,'',null,false,()=>{say(i);closeDrawer()},'seat'))}
  if(kind==='act'){$('drawerT').textContent='격한 응원';$('drawerS').textContent='근처 사람들에게도 보입니다.';const hot=document.createElement('button');hot.id='benchHot';hot.innerHTML='<i>구장 전체가 뒤집어지는 한 방</i><b>벤치클리어링 난입!</b><span id="benchHotS"></span>';hot.onclick=()=>{if(Bench.canJoin()){Bench.join();closeDrawer()}};G.append(hot);Bench.paint();ACTS.forEach((a,i)=>pick(a.n,a.s,null,false,()=>{act(i);closeDrawer()},'seat'))}
+ if(kind==='sound'){$('drawerT').textContent='소리 설정';$('drawerS').textContent='소리마다 크기를 따로 정합니다. 이 브라우저에 기억됩니다.';soundPanel(G)}
  if(kind==='seat'){$('drawerT').textContent='자리 이동';$('drawerS').textContent='구장 안의 자리로 이동하거나 내 응원 팀을 바꿀 수 있습니다.';SEATS.forEach(s=>pick(s.n,s.s,null,false,()=>{teleport(s);toggleDrawer('seat')},'seat'));pick(Joy.on?'조이스틱 끄기':'조이스틱 켜기',Joy.on?'탭과 드래그로만 움직입니다':'화면의 스틱으로 움직입니다',null,false,()=>{Joy.toggle();toggleDrawer('seat')},'seat');const other=CH==='kt'?'samsung':'kt';pick(`${THEMES[other].name} 팬으로 변경`,'내 화면의 테마와 옷장이 바뀌고 입장 화면으로 돌아갑니다',null,false,()=>{store.set('channel',other);location.hash=other;location.reload()},'seat')}}
+function soundPanel(G){const rows=[['song','응원가','타자 응원가 영상의 소리'],['crowd','주변 관중','웅성거림과 함성'],['fx','효과음','박수, 응원도구, 축포 소리']];
+ for(const[k,n,d]of rows){const r=document.createElement('label');r.className='volRow';r.innerHTML=`<span><b>${n}</b><small>${d}</small></span><input type="range" min="0" max="100" step="5"><output></output>`;const i=r.querySelector('input'),o=r.querySelector('output');i.value=VOL[k];o.textContent=VOL[k]?VOL[k]:'끔';i.oninput=()=>{VOL[k]=+i.value;o.textContent=VOL[k]?VOL[k]:'끔';store.set('vol-'+k,VOL[k]);Audio_.vol();if(k==='song')Song.vol()};G.append(r)}
+ const all=document.createElement('button');all.className='pick volAll';all.textContent=Audio_.on?'모든 소리 끄기':'모든 소리 켜기';all.onclick=()=>{$('soundBtn').dataset.mute='1';muteAll();all.textContent=Audio_.on?'모든 소리 끄기':'모든 소리 켜기'};G.append(all)}
 const closeDrawer=()=>{if(drawer)toggleDrawer(drawer)};$('drawerClose').onclick=closeDrawer;$('wardBtn').onclick=()=>toggleDrawer('ward');$('gearBtn').onclick=()=>toggleDrawer('gear');$('seatBtn').onclick=()=>toggleDrawer('seat');$('msgBtn').onclick=()=>toggleDrawer('msg');$('benchJoin').onclick=()=>Bench.join();$('actBtn').onclick=()=>toggleDrawer('act');$('boardBtn').onclick=toggleBoardView;$('gameBtn').onclick=()=>Game.toggle();
-$('soundBtn').onclick=()=>{const on=Audio_.toggle();if(on)Song.resume();else Song.pause();$('soundBtn').firstChild.nodeValue=on?'소리 끔':'소리 켬'};
+function muteAll(){const on=Audio_.toggle();if(on)Song.resume();else Song.pause();$('soundBtn').classList.toggle('muted',!on)}
+$('soundBtn').onclick=()=>toggleDrawer('sound');
 $('numIn').value=me.num;rosterSelect($('numPick'),CH,n=>{if(n)$('numIn').value=n});$('numIn').oninput=e=>typedNum(e.target,$('numPick'));$('titleA').textContent=T.title[0];$('titleB').textContent=T.title[1];$('gateInfo').textContent=T.info;document.title=T.title.join(' ');for(const[id,ch]of[['pickKt','kt'],['pickSs','samsung']]){const b=$(id);b.setAttribute('aria-pressed',CH===ch);b.onclick=()=>{if(CH===ch)return;store.set('channel',ch);location.hash=ch;location.reload()}}document.body.classList.add('gated');
-$('enter').onclick=()=>{setBack($('numPick').value.split(' ')[1]||'',$('numIn').value);$('gate').classList.add('off');document.body.classList.remove('gated');Net.connect();hit('enter');setTimeout(()=>$('gate').hidden=true,520);if(!Audio_.on)$('soundBtn').click();teleport(SEATS[0]);nav.pitch=.12};
+$('enter').onclick=()=>{setBack($('numPick').value.split(' ')[1]||'',$('numIn').value);$('gate').classList.add('off');document.body.classList.remove('gated');Net.connect();hit('enter');setTimeout(()=>$('gate').hidden=true,520);if(!Audio_.on)muteAll();teleport(SEATS[0]);nav.pitch=.12};
 
 /* ---------- gear motion and audio ---------- */
 function animateCheer(dt,t){const c=hero,g=me.gear,F=nav.cheer;const beat=t*(g==='flag'||g==='towel'?5:9);const s=Math.sin(beat),ax=-2.75;
@@ -988,7 +998,7 @@ var Net=(()=>{let hiClock=0;
   move(force){const now=performance.now(),p=hero.position,c=nav.cheer>.01?1:0;if(!force&&now-sent.t<330)return;if(!force&&Math.abs(p.x-sent.x)+Math.abs(p.z-sent.z)<.1&&c===sent.c&&now-sent.t<20000)return;sent={x:p.x,z:p.z,c,t:now};Net.send(['m',+p.x.toFixed(1),+p.z.toFixed(1),+wrap(hero.rotation.y).toFixed(2),c])},
   step(dt,t){hiClock+=dt;if(hiClock>.6){hiClock=0;rankHi()}for(const p of others.values()){const k=Math.min(1,dt*5),dx=p.tx-p.pos.x,dz=p.tz-p.pos.z;if(p.hi)poseHi(p,dt,t,Math.hypot(dx,dz)*5);p.pos.x+=dx*k;p.pos.z+=dz*k;p.pos.y=lerp(p.pos.y,groundAt(p.pos.x,p.pos.z),k);p.g.position.copy(p.pos);p.g.rotation.y+=wrap(p.yaw-p.g.rotation.y)*k;stepAct(p.g,dt,t,p.g,null);const a=p.g.userData;if(p.cheer){const s=Math.sin(t*9+p.tx);p.g.position.y+=Math.abs(s)*.12;a.armL.rotation.z=2.5+s*.3;a.armR.rotation.z=-2.5-s*.3;a.armL.position.y=a.armR.position.y=1.05;a.holders.forEach(h=>h.rotation.z=Math.PI);if(a.muffler)a.muffler.position.y=1.72}else{a.armL.rotation.z=.55;a.armR.rotation.z=-.55;a.armL.position.y=a.armR.position.y=.8;a.holders.forEach(h=>h.rotation.z=h.parent===a.armR?HOLD:-HOLD);if(a.muffler)a.muffler.position.y=1}}spread(dt)}}})();
 /* ---------- frame ---------- */
-const composer=(()=>{if(innerWidth<0)return null;const rt=new THREE.WebGLRenderTarget(4,4,{samples:mobile?0:4,type:THREE.HalfFloatType});const c=new THREE.EffectComposer(renderer,rt);c.addPass(new THREE.RenderPass(scene,camera));const b=new THREE.UnrealBloomPass(new THREE.Vector2(256,256),.42,.5,.93);c.addPass(b);c.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));return c})();
+const composer=(()=>{if(innerWidth<0)return null;const rt=new THREE.WebGLRenderTarget(4,4,{samples:mobile?0:4,type:THREE.HalfFloatType});const c=new THREE.EffectComposer(renderer,rt);c.addPass(new THREE.RenderPass(scene,camera));const b=new THREE.UnrealBloomPass(new THREE.Vector2(256,256),.42,.5,.93);scene.userData.bloom=b;c.addPass(b);c.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));return c})();
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();
 const camPos=new THREE.Vector3(),camLook=new THREE.Vector3();let prev=performance.now(),acc=0,frames=0;const clock={t:0};
 hero.position.set(0,0,18);{const sa=(CH==='kt'?-1:1)*Math.PI*.3,a=ring.reduce((p,r)=>Math.abs(wrap(r.ang-sa))<Math.abs(wrap(p.ang-sa))?r:p,ring[0]);const q=a.p.clone().addScaledVector(a.n,9);hero.position.copy(q);nav.y=groundAt(q.x,q.z);hero.rotation.y=Math.atan2(-q.x,40-q.z);nav.yaw=hero.rotation.y+Math.PI}
