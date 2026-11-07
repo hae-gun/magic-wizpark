@@ -69,6 +69,8 @@ body.training .hud,body.training #scoreFx{visibility:hidden!important}
 #trPanel li em{font:400 18px var(--display);font-style:normal;color:var(--gold)}
 #trPanel .tag{display:inline-block;padding:0 5px;margin-right:4px;border-radius:4px;font:400 11px var(--display);vertical-align:1px}
 #trPanel .tag.kt{background:#e3122c}#trPanel .tag.samsung{background:#0a56b5}
+#trPanel .nickRow{display:flex;gap:6px}#trPanel .nickRow input{flex:1;min-width:0;min-height:42px;padding:6px 10px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:16px}#trPanel .nickRow button{padding:0 16px;border-radius:8px;background:var(--kt-red);font-weight:700}#trPanel .nickRow button:disabled{opacity:.5}
+#trPanel .nickErr{min-height:1em;margin:4px 0 0;font-size:12px;color:#ff8a8a}
 #trPanel .score{font:400 64px/1 var(--display);color:var(--gold);text-align:center;margin:6px 0}
 #trPanel .score small{font-size:20px;color:var(--dim)}
 #trPanel .note{font-size:12px;color:var(--dim);text-align:center}
@@ -175,7 +177,7 @@ const held = {};
 addEventListener('keyup', (e) => { held[e.code] = false; }, true);
 addEventListener('blur', () => { for (const k of Object.keys(held)) held[k] = false; });
 addEventListener('keydown', (e) => {
-  if (!on || e.target.tagName === 'SELECT') return;
+  if (!on || e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
   held[e.code] = true;
   if (e.code === 'Escape') { close(); return; }
   if ((e.code === 'Space' || e.code === 'Enter') && onAct) { e.preventDefault(); if (!e.repeat) press(); }
@@ -186,16 +188,19 @@ q('trQuit').onclick = () => close();
 const ranks = {}, waiting = {};
 const myBest = (g) => +store.get('train-best-' + GAMES[g].id, 0);
 function askRanks(g) { if (Net.live()) Net.send(['tq', g]); }
-function nameOf(num, nm) { return nm ? `${num ? num + ' ' : ''}${nm}` : num ? `등번호 ${num}` : '무명 팬'; }
 function rankList(g) {
   const r = ranks[g];
   if (!Net.live()) return `<p class="note">구장 서버에 연결되면 오늘의 랭킹이 보입니다. 내 최고 기록 ${myBest(g)}점</p>`;
   if (!r) return '<p class="note">랭킹을 불러오는 중…</p>';
   if (!r.list.length) return '<p class="note">아직 오늘 기록이 없어요. 첫 1위가 되어 보세요!</p>';
-  return `<ol>${r.list.map(([s, team, num, nm, who], i) => `<li class="${r.mine === i + 1 ? 'me' : ''}"><div><span class="tag ${team === 'samsung' ? 'samsung' : 'kt'}">${team === 'samsung' ? '삼성' : 'KT'}</span>${esc(nameOf(num, nm))}<br><i>${esc(who)} 특훈</i></div><em>${s}</em></li>`).join('')}</ol>`
+  return `<ol>${r.list.map(([s, team, nick, who], i) => `<li class="${r.mine === i + 1 ? 'me' : ''}"><div><span class="tag ${team === 'samsung' ? 'samsung' : 'kt'}">${team === 'samsung' ? '삼성' : 'KT'}</span>${esc(nick)}<br><i>${esc(who)} 특훈</i></div><em>${s}</em></li>`).join('')}</ol>`
     + (r.mine ? `<p class="note">내 순위 ${r.mine}위</p>` : '');
 }
+const NICK_ERR = { INVALID: '2~8자 한글, 영문, 숫자만 쓸 수 있어요', BLOCKED: '쓸 수 없는 말이 들어 있어요', EXPIRED: '기록 시간이 지났어요. 한 번 더 해 주세요' };
+function onNickError(m) { const box = panel.querySelector('.nickErr'); if (box) box.textContent = NICK_ERR[m[2]] || '등록하지 못했어요'; const b = panel.querySelector('[data-nick]'); if (b) b.disabled = false; }
 function onRanks(m) {
+  if (m[0] === 'tne') { onNickError(m); return; }
+  const form = panel.querySelector('.nickForm'); if (form && form.dataset.wait) form.outerHTML = '<p class="note">랭킹에 등록했어요!</p>';
   const [, g, list, , mine] = m; if (!GAMES[g]) return;
   ranks[g] = { list: Array.isArray(list) ? list : [], mine: +mine || 0 };
   if (waiting[g]) waiting[g]();
@@ -595,8 +600,19 @@ async function result(score, made) {
   await say('player', good ? '감사합니다 코치님!!' : '한 번만 더 해 주세요!', 1.4);
   cap.hidden = true;
   show(`<h2>${G.name} 결과</h2><p>${esc(player.userData.label)} 선수 특훈</p><div class="score">${score}<small> 점</small></div><p class="note">${G.made(made)}${score > myBestBefore ? ' (내 최고 기록!)' : ''}</p>
-    <p class="note">${line}</p><div data-rank="${g}">${rankList(g)}</div>
+    <p class="note">${line}</p>${sent && score > 0 ? `<div class="nickForm"><label for="trNick">랭킹에 올릴 닉네임</label><div class="nickRow"><input id="trNick" maxlength="8" autocomplete="off" placeholder="2~8자" value="${esc(store.get('train-nick', ''))}"><button data-nick>등록</button></div><p class="nickErr"></p></div>` : ''}<div data-rank="${g}">${rankList(g)}</div>
     <div class="row"><button data-again>한 번 더</button><button data-menu>다른 특훈</button><button data-out>구장으로</button></div>`);
+  const nb = panel.querySelector('[data-nick]');
+  if (nb) {
+    const inp = q('trNick'), go = () => {
+      const v = inp.value.trim(), err = panel.querySelector('.nickErr');
+      if (!/^[가-힣A-Za-z0-9]{2,8}$/.test(v)) { err.textContent = NICK_ERR.INVALID; return; }
+      if (!Net.live()) { err.textContent = '구장 서버에 연결되어 있지 않아요'; return; }
+      store.set('train-nick', v); nb.disabled = true; err.textContent = ''; panel.querySelector('.nickForm').dataset.wait = '1';
+      Net.send(['tn', g, v]);
+    };
+    nb.onclick = go; inp.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+  }
   panel.querySelector('[data-again]').onclick = () => { show(''); guard(session); };
   panel.querySelector('[data-menu]').onclick = menu;
   panel.querySelector('[data-out]').onclick = () => close();
