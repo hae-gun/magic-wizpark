@@ -88,36 +88,14 @@ const panel = q('trPanel'), cap = q('trCap'), big = q('trBig'), hud = q('trHud')
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 /* ---------- scene ---------- */
-// colours are written as sRGB and converted, like the page does, because this scene renders straight to the screen
+// Training happens on the real field of the ballpark. Everything lives in one group turned half a circle,
+// so the code below can keep home plate at the origin with the outfield toward -z.
 const toonL = (c, o) => toon(lin(c), o), glowL = (c, o) => glow(lin(c), o);
-const S = new THREE.Scene();
-S.background = lin(0x9fd6ff);
-S.fog = new THREE.Fog(lin(0x9fd6ff), 90, 220);
-const cam = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
-S.add(new THREE.HemisphereLight(0xffffff, 0x5c8a4a, 0.75));
-const sun = new THREE.DirectionalLight(0xffffff, 0.85);
-sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
-Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 80 });
-S.add(sun, sun.target);
-const aim = (x, z) => { sun.position.set(x + 12, 30, z + 14); sun.target.position.set(x, 0, z); };
-const flat = (geo, color, y, x = 0, z = 0) => { const m = new THREE.Mesh(geo, toonL(color)); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true; S.add(m); return m; };
-flat(new THREE.PlaneGeometry(500, 500), 0x5fae4e, 0);
-flat(new THREE.CircleGeometry(30, 40, Math.PI / 4, Math.PI / 2), 0xc98a55, 0.01);
-flat(new THREE.CircleGeometry(17.5, 40), 0x67b955, 0.02, 0, -18.4);
-for (let i = 0; i < 14; i += 1) flat(new THREE.RingGeometry(60 + i * 6, 63 + i * 6, 48, 1, Math.PI / 4, Math.PI / 2), 0x6bbd59, 0.015);
+const S = new THREE.Group(); S.rotation.y = Math.PI; S.visible = false; scene.add(S);
+// the camera is described in the same turned frame and copied onto the page camera every frame
+const cam = { position: new THREE.Vector3(), look: new THREE.Vector3(), lookAt(x, y, z) { this.look.set(x, y, z); } };
+const aim = () => {};
 {
-  const mound = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.9, 0.25, 28), toonL(0xb87a48)); mound.position.set(0, 0.12, -18.4); mound.receiveShadow = true; S.add(mound);
-  const rubber = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.03, 0.15), toonL(0xffffff)); rubber.position.set(0, 0.26, -18.4); S.add(rubber);
-  const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.03, 5), toonL(0xffffff)); plate.position.set(0, 0.03, 0); plate.rotation.y = Math.PI / 10; S.add(plate);
-  for (const [x, z] of [[19.4, -19.4], [0, -38.8], [-19.4, -19.4]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.1, 0.45), toonL(0xffffff)); b.position.set(x, 0.05, z); b.rotation.y = Math.PI / 4; S.add(b); }
-  for (const s of [1, -1]) { const l = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 98), glowL(0xffffff)); l.rotation.set(-Math.PI / 2, 0, s * Math.PI / 4); l.position.set(s * 34.6, 0.03, -34.6); S.add(l); }
-  const fence = new THREE.Mesh(new THREE.CylinderGeometry(98, 98, 3.4, 64, 1, true, Math.PI * 0.75, Math.PI * 0.5), toonL(0x1f5a3a, { side: THREE.DoubleSide })); fence.position.y = 1.7; S.add(fence);
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(98.1, 98.1, 0.3, 64, 1, true, Math.PI * 0.75, Math.PI * 0.5), glowL(new THREE.Color(T.accent), { side: THREE.DoubleSide })); top.position.y = 3.45; S.add(top);
-  const stands = new THREE.Mesh(new THREE.CylinderGeometry(125, 100, 18, 64, 1, true, Math.PI * 0.72, Math.PI * 0.56), toonL(new THREE.Color(T.deep || '#333'), { side: THREE.BackSide })); stands.position.y = 9; S.add(stands);
-  // banner over the outfield
-  const c = document.createElement('canvas'); c.width = 1024; c.height = 128; const x = c.getContext('2d');
-  x.fillStyle = T.accent; x.fillRect(0, 0, 1024, 128); x.fillStyle = '#fff'; x.font = '84px "Black Han Sans"'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('특훈장   오늘도 강해진다', 512, 68);
-  const banner = new THREE.Mesh(new THREE.PlaneGeometry(36, 4.5), new THREE.MeshBasicMaterial({ map: Object.assign(new THREE.CanvasTexture(c), { encoding: THREE.sRGBEncoding }) })); banner.position.set(0, 13, -112); S.add(banner);
   const zone = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(0.62, 0.72)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 }));
   zone.position.set(0, 0.86, 0); zone.visible = false; S.add(zone); S.userData.zone = zone;
 }
@@ -191,8 +169,13 @@ q('trTouch').addEventListener('pointermove', (e) => {
   drag.dx = dx / r; drag.dy = dy / r; stick.firstChild.style.transform = `translate(${dx}px,${dy}px)`;
 });
 for (const ev of ['pointerup', 'pointercancel']) q('trTouch').addEventListener(ev, (e) => { if (e.pointerId === drag.id) { drag.id = null; drag.dx = drag.dy = 0; stick.hidden = true; } });
+// the page ignores keys while training, so movement keys are tracked here
+const held = {};
+addEventListener('keyup', (e) => { held[e.code] = false; }, true);
+addEventListener('blur', () => { for (const k of Object.keys(held)) held[k] = false; });
 addEventListener('keydown', (e) => {
   if (!on || e.target.tagName === 'SELECT') return;
+  held[e.code] = true;
   if (e.code === 'Escape') { close(); return; }
   if ((e.code === 'Space' || e.code === 'Enter') && onAct) { e.preventDefault(); if (!e.repeat) press(); }
 }, true);
@@ -268,7 +251,7 @@ function cast() {
   bat.removeFromParent(); rest(player); rest(coach);
 }
 function scenery() { // the menu backdrop: the empty diamond seen from behind home
-  ball.visible = shadow.visible = false; clearTrail(); S.userData.zone.visible = false;
+  ball.visible = shadow.visible = false; landRing.visible = false; clearTrail(); S.userData.zone.visible = false;
   if (player) player.visible = false; if (coach) coach.visible = false;
   view = 'menu'; aim(0, -20);
 }
@@ -309,7 +292,7 @@ function punish(P) {
     const my = token; let n = 0, hit = 0;
     rest(player); rest(coach);
     action(P.btn, `0 / ${P.need}`);
-    const head = () => player.localToWorld(new THREE.Vector3(0, 1.45, 0.3));
+    const head = () => S.worldToLocal(player.localToWorld(new THREE.Vector3(0, 1.45, 0.3)));
     tick = (dt) => {
       if (my !== token) { fail(STOP); return; }
       hit = Math.max(0, hit - dt * 3.5);
@@ -478,41 +461,56 @@ async function pitching() {
 }
 
 /* ---------- 3. fly balls ---------- */
+// landing ring that appears once the ball passes its highest point
+const landRing = new THREE.Mesh(new THREE.RingGeometry(0.75, 1.0, 32), glowL(0xffd34d, { transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+landRing.rotation.x = -Math.PI / 2; landRing.visible = false; S.add(landRing);
 async function fielding() {
   view = 'fly';
-  const SPEED = 7;
+  const SPEED = 7.5, SLIDE_SPEED = 17, SLIDE_TIME = 0.45, SLIDE_GAP = 0.9;
   player.position.set(0, 0, -50); player.rotation.y = 0;
   coach.position.set(0.8, 0, 0.3); coach.rotation.y = Math.PI;
   coach.root.add(bat); bat.position.set(0, 0.95, 0); bat.rotation.set(0.4, 0, 0);
   hudText('');
-  let score = 0;
-  const camAt = () => { const p = player.position; cam.position.lerp(new THREE.Vector3(p.x * 0.85, 6.4, p.z - 8.2), 0.12); cam.lookAt(p.x * 0.9, 1.2, p.z + 9); aim(p.x, p.z + 2); };
+  let score = 0, slideUntil = 0, slideReady = 0;
+  const dir = new THREE.Vector2(0, 1);
+  const camAt = () => { const p = player.position; cam.position.lerp(new THREE.Vector3(p.x * 0.85, 6.4, p.z - 8.2), 0.12); cam.lookAt(p.x * 0.9, 1.2, p.z + 9); };
   cam.position.set(0, 6.4, -58); camAt();
+  const slide = () => { if (clock < slideReady) return; slideUntil = clock + SLIDE_TIME; slideReady = clock + SLIDE_TIME + SLIDE_GAP; sfx('swish'); };
   const move = (dt) => {
-    let ix = (keys.KeyA || keys.ArrowLeft ? 1 : 0) - (keys.KeyD || keys.ArrowRight ? 1 : 0);
-    let iz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
+    let ix = (held.KeyA || held.ArrowLeft ? 1 : 0) - (held.KeyD || held.ArrowRight ? 1 : 0);
+    let iz = (held.KeyW || held.ArrowUp ? 1 : 0) - (held.KeyS || held.ArrowDown ? 1 : 0);
     if (drag.id !== null) { ix = -drag.dx; iz = -drag.dy; }
-    const len = Math.hypot(ix, iz);
-    if (len > 0.12) {
-      const k = Math.min(1, len); ix /= len; iz /= len;
-      const p = player.position; p.x = Math.max(-34, Math.min(34, p.x + ix * SPEED * k * dt)); p.z = Math.max(-78, Math.min(-26, p.z + iz * SPEED * k * dt));
-      player.rotation.y += (((Math.atan2(ix, iz) - player.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 12);
+    const len = Math.hypot(ix, iz), p = player.position;
+    const step = (vx, vz, sp) => { p.x = Math.max(-34, Math.min(34, p.x + vx * sp * dt)); p.z = Math.max(-78, Math.min(-26, p.z + vz * sp * dt)); };
+    if (len > 0.12) dir.set(ix / len, iz / len);
+    if (clock < slideUntil) { // a feet-first slide: fast, low, straight ahead
+      step(dir.x, dir.y, SLIDE_SPEED * (0.55 + 0.45 * (slideUntil - clock) / SLIDE_TIME));
+      player.rotation.y = Math.atan2(dir.x, dir.y);
+      player.root.rotation.x = -1.15; player.root.position.y = 0.35; player.legL.rotation.x = player.legR.rotation.x = 0;
+      player.armL.p.rotation.set(-2.6, 0, 0.3); player.armR.p.rotation.set(-2.6, 0, -0.3);
+      if (frameN % 2 === 0) pop(p.x, 0.1, p.z, 0xc9a27a, 1, 0.8, 0.6);
+    } else if (len > 0.12) {
+      const k = Math.min(1, len);
+      player.root.rotation.x = 0; step(dir.x, dir.y, SPEED * k);
+      player.rotation.y += (((Math.atan2(dir.x, dir.y) - player.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 12);
       stride(player, clock, k);
-    } else { player.legL.rotation.x = player.legR.rotation.x = 0; player.root.position.y = 0; player.armL.p.rotation.set(-0.9, 0, 0.3); player.armR.p.rotation.set(-0.9, 0, -0.3); player.rotation.y += (0 - player.rotation.y) * Math.min(1, dt * 4); }
+    } else { player.root.rotation.x = 0; player.legL.rotation.x = player.legR.rotation.x = 0; player.root.position.y = 0; player.armL.p.rotation.set(-0.9, 0, 0.3); player.armR.p.rotation.set(-0.9, 0, -0.3); player.rotation.y += (0 - player.rotation.y) * Math.min(1, dt * 4); }
     camAt();
   };
+  const coarse = matchMedia('(pointer:coarse)').matches;
   for (let i = 0; i < TRIES; i += 1) {
-    hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}개<br><small>${matchMedia('(pointer:coarse)').matches ? '화면을 끌어서 이동' : '방향키나 WASD로 이동'}</small>`);
-    tick = move;
+    hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}개<br><small>${coarse ? '화면을 끌어서 이동, 버튼으로 슬라이딩' : '방향키나 WASD로 이동, Space 슬라이딩'}</small>`);
+    tick = move; onAct = slide; action('슬라이딩', 'Space');
     await wait(i ? 0.7 : 1.4);
     // coach hits it
-    const T_ = Math.max(2.3, 3.4 - i * 0.12);
-    const p = player.position, ang = Math.random() * Math.PI * 2, dist = 3 + Math.random() * Math.min(14, 0.7 * SPEED * T_ - 3);
+    const T_ = Math.max(2.5, 3.6 - i * 0.11);
+    const p = player.position, ang = Math.random() * Math.PI * 2, dist = 3 + Math.random() * Math.min(15, 0.75 * SPEED * T_ - 3);
     const land = new THREE.Vector3(Math.max(-30, Math.min(30, p.x + Math.sin(ang) * dist)), 1.0, Math.max(-74, Math.min(-30, p.z + Math.cos(ang) * dist)));
     const from = new THREE.Vector3(0.6, 1.2, -0.3), g = 9.8, vy = (land.y - from.y + 0.5 * g * T_ * T_) / T_;
     const t0 = clock; let swing = 0;
     sfx('bonk'); ball.visible = shadow.visible = true; clearTrail();
-    const done = await new Promise((res, rej) => {
+    landRing.position.set(land.x, 0.05, land.z); landRing.visible = false;
+    const d = await new Promise((res, rej) => {
       const my = token;
       tick = (dt) => {
         if (my !== token) { rej(STOP); return; }
@@ -523,25 +521,26 @@ async function fielding() {
         shadow.position.set(ball.position.x, 0.03, ball.position.z);
         shadow.scale.setScalar(0.7 + Math.min(1.5, ball.position.y / 12));
         shadow.material.opacity = 0.5 - Math.min(0.3, ball.position.y / 50);
+        if (t >= vy / g) { landRing.visible = true; landRing.scale.setScalar(1 + Math.sin(clock * 12) * 0.12); } // past the top: show where it comes down
         if (frameN % 3 === 0) dropTrail(ball.position);
         if (k >= 1) { tick = move; res(Math.hypot(player.position.x - land.x, player.position.z - land.z)); }
       };
     });
-    const d = done;
+    const sliding = clock < slideUntil + 0.15;
     let pts = 0, text;
-    if (d <= 1.0) { pts = Math.round(10 + 5 * (1 - d)); text = [d <= 0.35 ? '정면 캐치!' : '나이스 캐치!', `+${pts}점`, d <= 0.35 ? '#ffc861' : '#9fe6ff']; ball.visible = false; sfx('clap'); }
+    if (d <= 1.0) { pts = Math.round(10 + 5 * (1 - d)); text = sliding ? ['슬라이딩 캐치!', `+${pts}점`, '#ffc861'] : [d <= 0.35 ? '정면 캐치!' : '나이스 캐치!', `+${pts}점`, d <= 0.35 ? '#ffc861' : '#9fe6ff']; ball.visible = false; sfx('clap'); }
     else if (d <= 1.6) { pts = 8; text = ['다이빙 캐치!', '+8점', '#9fe6ff']; ball.visible = false; sfx('clap'); player.root.rotation.x = 1.2; }
-    else { text = ['놓쳤다!', '그림자 밑으로!', '#ff8a8a']; sfx('swish'); }
-    score += pts; shout(...text); shadow.visible = false;
+    else { text = ['놓쳤다!', '노란 원 안으로!', '#ff8a8a']; sfx('swish'); }
+    score += pts; shout(...text); shadow.visible = false; landRing.visible = false;
     hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}개`);
     if (pts === 0) {
       const v = new THREE.Vector3((Math.random() - 0.5) * 3, 3, -4);
       tick = (dt) => { move(dt); v.y -= 9.8 * dt; ball.position.addScaledVector(v, dt); if (ball.position.y < 0.11) { ball.position.y = 0.11; v.multiplyScalar(0.5); v.y = Math.abs(v.y); } };
-    }
+    } else tick = move;
     await wait(1.1);
     player.root.rotation.x = 0; ball.visible = false; clearTrail();
   }
-  tick = null; bat.removeFromParent(); bat.rotation.set(0, 0, 0);
+  tick = null; onAct = null; action(''); bat.removeFromParent(); bat.rotation.set(0, 0, 0); landRing.visible = false;
   return score;
 }
 
@@ -574,16 +573,16 @@ async function result(score) {
 }
 
 /* ---------- open, close, frame ---------- */
-let frameN = 0, prevEnc;
+let frameN = 0, fov0 = 60;
 function open() {
   if (on) return;
-  on = true; root.hidden = false; document.body.classList.add('training');
+  on = true; root.hidden = false; document.body.classList.add('training'); S.visible = true; fov0 = camera.fov;
   for (const k of Object.keys(keys)) keys[k] = false;
   pick.row = store.get('train-row', '') || '';
   menu();
 }
 function close() {
-  cancel(); on = false; root.hidden = true; document.body.classList.remove('training');
+  cancel(); on = false; root.hidden = true; document.body.classList.remove('training'); S.visible = false; hideCrowd(true); camera.fov = fov0; camera.updateProjectionMatrix();
   cap.hidden = big.hidden = gauge.hidden = true; action(''); show(''); stick.hidden = true; drag.id = null;
   for (const k of Object.keys(keys)) keys[k] = false;
 }
@@ -593,11 +592,17 @@ function frame(dt) {
   if (capTimer > 0 && (capTimer -= dt) <= 0) cap.hidden = true;
   if (tick) tick(dt);
   stepPops(dt);
-  if (view === 'menu') { const a = clock * 0.06; cam.position.set(Math.sin(a) * 6, 4.5, 9 + Math.cos(a) * 2); cam.lookAt(0, 1, -30); }
-  cam.aspect = innerWidth / innerHeight; cam.fov = (view === 'pitch' ? 32 : 55) * (cam.aspect < 0.8 ? 1.3 : 1); cam.updateProjectionMatrix();
-  prevEnc = renderer.outputEncoding; renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.render(S, cam);
-  renderer.outputEncoding = prevEnc;
+  if (view === 'menu') { const a = clock * 0.06; cam.position.set(Math.sin(a) * 6, 5.5, 11 + Math.cos(a) * 2); cam.lookAt(0, 2, -40); }
+  camera.position.set(-cam.position.x, cam.position.y, -cam.position.z); camera.lookAt(-cam.look.x, cam.look.y, -cam.look.z);
+  camera.fov = (view === 'pitch' ? 32 : 55) * (camera.aspect < 0.8 ? 1.3 : 1); camera.updateProjectionMatrix();
+  hideCrowd(false);
+}
+// other fans, the live-play figures and my own seat character step aside while I train
+function hideCrowd(back) {
+  for (const p of Net.others.values()) p.g.visible = back;
+  for (const a of Game.actors) a.c.visible = back;
+  if (Game.ball) Game.ball.visible = back && Game.ball.visible;
+  hero.visible = back;
 }
 window.Train = { get on() { return on; }, open, close, frame, ranks: onRanks };
 })();

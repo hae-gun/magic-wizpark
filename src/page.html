@@ -928,7 +928,7 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
  const setCam=v=>{if(cam===v)return;cam=v;if(!v)nav.snap=true;label()};
  /* moving shows your character, standing still returns to the game, unless V asked to stay */
  const follow=(dt,busy)=>{if(!on)return;const now=performance.now();if(busy){idle=now;setCam(false);return}if(!stay&&!cam&&now-idle>3500)setCam(true)};
- return{start,step,follow,seek,startLive,stopLive,get liveMode(){return liveMode},get rest(){return rest},get cam(){return on&&cam},toggle(){stay=cam;idle=performance.now();setCam(!cam)},focus,on:()=>on,get S(){return S},get actors(){return actors}}})();
+ return{start,step,follow,seek,startLive,stopLive,get liveMode(){return liveMode},get rest(){return rest},get cam(){return on&&cam},toggle(){stay=cam;idle=performance.now();setCam(!cam)},focus,on:()=>on,get S(){return S},get actors(){return actors},get ball(){return ball}}})();
 
 /* the player has to stay visible, so people can drag it out of the way; the spot is remembered */
 (()=>{const b=$('song'),h=$('songHead');let d=null;const put=(x,y)=>{b.style.left=clamp(x,4,innerWidth-212)+'px';b.style.top=clamp(y,4,innerHeight-250)+'px';b.style.bottom='auto'};const s=String(store.get('songPos','')).split(',').map(Number);if(s.length===2&&s.every(Number.isFinite))put(s[0],s[1]);h.style.cursor='move';h.style.touchAction='none';h.onpointerdown=e=>{if(e.target.closest('button'))return;const r=b.getBoundingClientRect();d=[e.clientX-r.left,e.clientY-r.top];h.setPointerCapture(e.pointerId)};h.onpointermove=e=>{if(d)put(e.clientX-d[0],e.clientY-d[1])};h.onpointerup=h.onpointercancel=()=>{if(d){d=null;store.set('songPos',parseInt(b.style.left)+','+parseInt(b.style.top))}}})();
@@ -1065,7 +1065,7 @@ const camPos=new THREE.Vector3(),camLook=new THREE.Vector3();let prev=performanc
 hero.position.set(0,0,18);{const sa=(CH==='kt'?-1:1)*Math.PI*.3,a=ring.reduce((p,r)=>Math.abs(wrap(r.ang-sa))<Math.abs(wrap(p.ang-sa))?r:p,ring[0]);const q=a.p.clone().addScaledVector(a.n,9);hero.position.copy(q);nav.y=groundAt(q.x,q.z);hero.rotation.y=Math.atan2(-q.x,40-q.z);nav.yaw=hero.rotation.y+Math.PI}
 let gateAngle=0;const boardCam=new THREE.Vector3(0,32,(innerHeight>innerWidth?38:58)-DZ),boardLook=new THREE.Vector3(0,36,150-DZ);
 function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/1000,.05);prev=now;clock.t+=dt;const t=clock.t;
- if(window.Train?.on){Net.move();Net.step(dt,t);Bench.step(dt,t);Game.step(dt,t);Train.frame(dt);return}
+ if(window.Train?.on){Net.move();Net.step(dt,t);Bench.step(dt,t);Game.step(dt,t);Train.frame(dt);FX.step(dt);composer.render(dt);frames++;return}
  /* movement */
  let ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0),iz=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0),len=Math.hypot(ix,iz);if(!len&&Joy.active){ix=Joy.x;iz=-Joy.y;len=Math.min(1,Math.hypot(ix,iz)*1.25)}if(len>.08){nav.target=null;marker.visible=false}
  const tg=nav.target,tdx=tg?tg.x-hero.position.x:0,tdz=tg?tg.z-hero.position.z:0,tdist=Math.hypot(tdx,tdz);if(tg&&tdist<.3){nav.target=null;marker.visible=false}else if(tg)len=1;marker.scale.setScalar(1+Math.sin(t*5)*.14);
