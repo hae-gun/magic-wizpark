@@ -998,7 +998,14 @@ function animateCheer(dt,t){const c=hero,g=me.gear,F=nav.cheer;const beat=t*(g==
 /* turns a raised pose into a Y shape beside the head, with the held item pointing up */
 function raise(arm,s,g){const e=arm.p.rotation;if(e.x>-1.5)return null;const swing=Math.abs(e.z)-.5,z=s*(2.2+swing*.55),x=-.22+(e.x+2.7)*.2;e.set(x,0,z);return s*(g==='wizbat'?.18+swing*.42:.1)}
 /* ---------- other fans ---------- */
-function bubbleSprite(text){const[c,x]=canvasOf(420,120);x.fillStyle='#fffdf7';x.strokeStyle=T.accent;x.lineWidth=6;x.beginPath();x.roundRect(6,6,408,86,26);x.fill();x.stroke();x.beginPath();x.moveTo(190,90);x.lineTo(210,114);x.lineTo(232,90);x.closePath();x.fill();x.fillStyle='#1a1416';x.font='38px "Black Han Sans",sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(text,210,52);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex(c),transparent:true,depthWrite:false}));s.material.color.setScalar(.8);s.scale.set(2.5,.71,1);s.position.y=2.75;return s}
+/* sized to the text and wrapped onto up to three lines, so long notices stay inside the bubble on small screens */
+function bubbleSprite(text){const F='38px "Black Han Sans",sans-serif',MAX=360,LH=46;const[,m]=canvasOf(8,8);m.font=F;
+ const lines=[];let cur='';for(const w of String(text).split(' ')){const t=cur?cur+' '+w:w;if(cur&&m.measureText(t).width>MAX){lines.push(cur);cur=w}else cur=t}if(cur)lines.push(cur);lines.splice(3);
+ const tw=Math.min(MAX,Math.max(...lines.map(l=>m.measureText(l).width))),W=Math.max(150,Math.ceil(tw)+60),BH=LH*lines.length+40,H=BH+34;
+ const[c,x]=canvasOf(W,H);x.fillStyle='#fffdf7';x.strokeStyle=T.accent;x.lineWidth=6;x.beginPath();x.roundRect(6,6,W-12,BH-12,26);x.fill();x.stroke();
+ x.beginPath();x.moveTo(W/2-20,BH-8);x.lineTo(W/2,H-6);x.lineTo(W/2+22,BH-8);x.closePath();x.fill();
+ x.fillStyle='#1a1416';x.font=F;x.textAlign='center';x.textBaseline='middle';lines.forEach((l,i)=>x.fillText(l,W/2,6+(BH-12)/2+(i-(lines.length-1)/2)*LH,MAX));
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex(c),transparent:true,depthWrite:false}));s.material.color.setScalar(.8);const k=2.5/420;s.scale.set(W*k,H*k,1);s.center.set(.5,0);s.position.y=2.75-.71/2;return s}
 function showBubble(g,text){if(g.bubble){g.remove(g.bubble);g.bubble.material.map.dispose();g.bubble.material.dispose()}const s=bubbleSprite(text);g.add(s);g.bubble=s;clearTimeout(g.bubbleT);g.bubbleT=setTimeout(()=>{g.remove(s);s.material.map.dispose();s.material.dispose();if(g.bubble===s)g.bubble=null},3200)}
 const ACTS=[{n:'축포 발사',s:'머리 위로 불꽃을 쏘아 올려요',say:'축포 발사!'},{n:'승리의 점프',s:'펄쩍펄쩍 뛰며 환호해요',say:'이겼다!!'},{n:'분노 폭발',s:'발을 구르고 머리에서 김이 나요',say:'아오!!!'},{n:'드러눕기',s:'그 자리에 벌러덩 누워요',say:'아이고...'},{n:'오열',s:'눈물을 쏟아요',say:'흑흑...'}];
 let actReady=0,remoteBoom=0;
