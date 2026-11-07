@@ -35,6 +35,7 @@ body.training .hud,body.training #scoreFx{visibility:hidden!important}
 #trBig small{display:block;margin-top:8px;font:700 clamp(15px,4vw,22px) var(--body);text-align:center;color:var(--gold)}
 @keyframes trPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}25%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
 #trAct{position:absolute;left:50%;bottom:calc(26px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);min-width:180px;min-height:64px;padding:10px 26px;border-radius:40px;background:var(--kt-red);color:#fff;font:400 26px var(--display);box-shadow:0 5px 0 #0007;z-index:2}
+#trAct.side{left:auto;right:calc(16px + env(safe-area-inset-right,0px));transform:none;min-width:130px}#trAct.side:active{transform:translateY(3px)}
 #trAct:active{transform:translateX(-50%) translateY(3px);box-shadow:0 2px 0 #0007}
 #trAct small{display:block;font:600 12px var(--body);opacity:.85}
 #trGauge{position:absolute;left:50%;bottom:calc(110px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(440px,calc(100vw - 40px));pointer-events:none}
@@ -72,6 +73,7 @@ body.training .hud,body.training #scoreFx{visibility:hidden!important}
 #trPanel .score{font:400 64px/1 var(--display);color:var(--gold);text-align:center;margin:6px 0}
 #trPanel .score small{font-size:20px;color:var(--dim)}
 #trPanel .note{font-size:12px;color:var(--dim);text-align:center}
+#trMap{position:absolute;top:calc(64px + env(safe-area-inset-top,0px));right:calc(10px + env(safe-area-inset-right,0px));width:132px;height:108px;border-radius:10px;border:2px solid #fff9;background:#0007;pointer-events:none}
 #trStick{position:absolute;width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;border:2px solid #fff8;background:#fff2;pointer-events:none}
 #trStick i{position:absolute;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;background:#fffc}
 @media (prefers-reduced-motion:reduce){#trBig.pop{animation:none}}
@@ -81,7 +83,7 @@ const root = document.createElement('section');
 root.id = 'train'; root.hidden = true; root.setAttribute('aria-label', '선수 특훈');
 root.innerHTML = `<div id="trTouch"></div><div id="trHud" hidden></div><div id="trCap" hidden></div><div id="trBig" hidden></div>
 <div id="trGauge" hidden><div class="bar"><i class="zone"></i><i class="perfect"></i><i class="line"></i></div><span class="time"></span></div>
-<div id="trStick" hidden><i></i></div><button id="trAct" hidden></button><div id="trPanel" hidden></div><button id="trQuit" aria-label="특훈 그만하고 구장으로">✕</button>`;
+<div id="trStick" hidden><i></i></div><canvas id="trMap" width="264" height="216" hidden aria-hidden="true"></canvas><button id="trAct" hidden></button><div id="trPanel" hidden></div><button id="trQuit" aria-label="특훈 그만하고 구장으로">✕</button>`;
 document.body.append(root);
 const q = (id) => document.getElementById(id);
 const panel = q('trPanel'), cap = q('trCap'), big = q('trBig'), hud = q('trHud'), actBtn = q('trAct'), gauge = q('trGauge'), stick = q('trStick');
@@ -207,6 +209,8 @@ const topLine = (g) => { const r = ranks[g]; return r?.list[0] ? `오늘 1위 ${
 const pick = { game: 0, row: '', punish: 0 };
 function show(html) { panel.hidden = !html; panel.innerHTML = html || ''; }
 function menu() {
+  areaLine.visible = false;
+  q('trMap').hidden = true;
   cancel(); scenery(); hudText(''); cap.hidden = true; gauge.hidden = true; action('');
   GAMES.forEach((_, g) => askRanks(g));
   show(`<h2>선수 특훈장</h2><p>오늘 아쉬웠던 선수를 불러 귀엽게 혼내고, 특훈으로 다시 강하게 만들어 주세요. 기록은 매일 랭킹에 오릅니다.</p>
@@ -464,27 +468,46 @@ async function pitching() {
 }
 
 /* ---------- 3. fly balls ---------- */
+// a small map seen the same way as the camera (home at the top), so a ball dropping behind you is not lost
+// the fielding area: small enough that every ball is reachable, marked on the grass
+const AREA = { x: 14, z0: -62, z1: -40 };
+const areaLine = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => new THREE.Vector3(a * AREA.x, 0.06, (AREA.z0 + AREA.z1) / 2 + b * (AREA.z1 - AREA.z0) / 2))), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
+areaLine.visible = false; S.add(areaLine);
+const mapEl = q('trMap'), mx = mapEl.getContext('2d');
+let mapLand = null;
+function drawMap() {
+  const W = mapEl.width, H = mapEl.height, X = (x) => (AREA.x - x) / (AREA.x * 2) * W, Z = (z) => (AREA.z1 - z) / (AREA.z1 - AREA.z0) * H;
+  mx.clearRect(0, 0, W, H);
+  mx.fillStyle = '#2f8a4acc'; mx.fillRect(0, 0, W, H);
+  mx.fillStyle = '#fff'; mx.font = '700 20px sans-serif'; mx.textAlign = 'center'; mx.fillText('▲ 홈', W / 2, 22);
+  if (landRing.visible && mapLand) { mx.strokeStyle = '#ffd34d'; mx.lineWidth = 5; mx.beginPath(); mx.arc(X(mapLand.x), Z(mapLand.z), 11 + Math.sin(clock * 12) * 2, 0, Math.PI * 2); mx.stroke(); }
+  if (ball.visible) { mx.fillStyle = '#fff'; mx.beginPath(); mx.arc(X(ball.position.x), Z(ball.position.z), 5, 0, Math.PI * 2); mx.fill(); }
+  const p = player.position, a = player.rotation.y;
+  mx.save(); mx.translate(X(p.x), Z(p.z)); mx.rotate(Math.PI - a); // arrow points where the player faces
+  mx.fillStyle = T.accent; mx.strokeStyle = '#fff'; mx.lineWidth = 2; mx.beginPath(); mx.moveTo(0, 12); mx.lineTo(9, -8); mx.lineTo(-9, -8); mx.closePath(); mx.fill(); mx.stroke(); mx.restore();
+}
 // landing ring that appears once the ball passes its highest point
 const landRing = new THREE.Mesh(new THREE.RingGeometry(0.75, 1.0, 32), glowL(0xffd34d, { transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
 landRing.rotation.x = -Math.PI / 2; landRing.visible = false; S.add(landRing);
 async function fielding() {
   view = 'fly';
+  mapEl.hidden = false; areaLine.visible = true; actBtn.classList.add('side');
   const SPEED = 7.5, SLIDE_SPEED = 17, SLIDE_TIME = 0.45, SLIDE_GAP = 0.9;
-  player.position.set(0, 0, -50); player.rotation.y = 0;
+  player.position.set(0, 0, (AREA.z0 + AREA.z1) / 2); player.rotation.y = 0;
   coach.position.set(0.8, 0, 0.3); coach.rotation.y = Math.PI;
   coach.root.add(bat); bat.position.set(0, 0.95, 0); bat.rotation.set(0.4, 0, 0);
   hudText('');
   let score = 0, slideUntil = 0, slideReady = 0;
   const dir = new THREE.Vector2(0, 1);
-  const camAt = () => { const p = player.position; cam.position.lerp(new THREE.Vector3(p.x * 0.85, 6.4, p.z - 8.2), 0.12); cam.lookAt(p.x * 0.9, 1.2, p.z + 9); };
-  cam.position.set(0, 6.4, -58); camAt();
+  const camAt = () => { const p = player.position; cam.position.lerp(new THREE.Vector3(p.x * 0.85, 6.0, p.z - 8.0), 0.12); cam.lookAt(p.x * 0.9, 0.6, p.z + 5); };
+  cam.position.set(0, 6.0, (AREA.z0 + AREA.z1) / 2 - 8); camAt();
   const slide = () => { if (clock < slideReady) return; slideUntil = clock + SLIDE_TIME; slideReady = clock + SLIDE_TIME + SLIDE_GAP; sfx('swish'); };
   const move = (dt) => {
     let ix = (held.KeyA || held.ArrowLeft ? 1 : 0) - (held.KeyD || held.ArrowRight ? 1 : 0);
     let iz = (held.KeyW || held.ArrowUp ? 1 : 0) - (held.KeyS || held.ArrowDown ? 1 : 0);
     if (drag.id !== null) { ix = -drag.dx; iz = -drag.dy; }
     const len = Math.hypot(ix, iz), p = player.position;
-    const step = (vx, vz, sp) => { p.x = Math.max(-34, Math.min(34, p.x + vx * sp * dt)); p.z = Math.max(-78, Math.min(-26, p.z + vz * sp * dt)); };
+    const step = (vx, vz, sp) => { p.x = Math.max(-AREA.x, Math.min(AREA.x, p.x + vx * sp * dt)); p.z = Math.max(AREA.z0, Math.min(AREA.z1, p.z + vz * sp * dt)); };
     if (len > 0.12) dir.set(ix / len, iz / len);
     if (clock < slideUntil) { // a feet-first slide: fast, low, straight ahead
       step(dir.x, dir.y, SLIDE_SPEED * (0.55 + 0.45 * (slideUntil - clock) / SLIDE_TIME));
@@ -498,7 +521,7 @@ async function fielding() {
       player.rotation.y += (((Math.atan2(dir.x, dir.y) - player.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 12);
       stride(player, clock, k);
     } else { player.root.rotation.x = 0; player.legL.rotation.x = player.legR.rotation.x = 0; player.root.position.y = 0; player.armL.p.rotation.set(-0.9, 0, 0.3); player.armR.p.rotation.set(-0.9, 0, -0.3); player.rotation.y += (0 - player.rotation.y) * Math.min(1, dt * 4); }
-    camAt();
+    camAt(); drawMap();
   };
   const coarse = matchMedia('(pointer:coarse)').matches;
   for (let i = 0; i < TRIES; i += 1) {
@@ -507,12 +530,12 @@ async function fielding() {
     await wait(i ? 0.7 : 1.4);
     // coach hits it
     const T_ = Math.max(2.5, 3.6 - i * 0.11);
-    const p = player.position, ang = Math.random() * Math.PI * 2, dist = 3 + Math.random() * Math.min(15, 0.75 * SPEED * T_ - 3);
-    const land = new THREE.Vector3(Math.max(-30, Math.min(30, p.x + Math.sin(ang) * dist)), 1.0, Math.max(-74, Math.min(-30, p.z + Math.cos(ang) * dist)));
+    const p = player.position, ang = Math.random() * Math.PI * 2, dist = 2 + Math.random() * Math.min(3 + i * 0.5, 7);
+    const land = new THREE.Vector3(Math.max(-AREA.x + 1, Math.min(AREA.x - 1, p.x + Math.sin(ang) * dist)), 1.0, Math.max(AREA.z0 + 1, Math.min(AREA.z1 - 1, p.z + Math.cos(ang) * dist)));
     const from = new THREE.Vector3(0.6, 1.2, -0.3), g = 9.8, vy = (land.y - from.y + 0.5 * g * T_ * T_) / T_;
     const t0 = clock; let swing = 0;
     sfx('bonk'); ball.visible = shadow.visible = true; clearTrail();
-    landRing.position.set(land.x, 0.05, land.z); landRing.visible = false;
+    landRing.position.set(land.x, 0.05, land.z); landRing.visible = false; mapLand = land;
     const d = await new Promise((res, rej) => {
       const my = token;
       tick = (dt) => {
@@ -543,7 +566,7 @@ async function fielding() {
     await wait(1.1);
     player.root.rotation.x = 0; ball.visible = false; clearTrail();
   }
-  tick = null; onAct = null; action(''); bat.removeFromParent(); bat.rotation.set(0, 0, 0); landRing.visible = false;
+  tick = null; onAct = null; action(''); bat.removeFromParent(); bat.rotation.set(0, 0, 0); landRing.visible = false; mapEl.hidden = true; areaLine.visible = false; actBtn.classList.remove('side');
   return score;
 }
 
@@ -585,6 +608,9 @@ function open() {
   menu();
 }
 function close() {
+  areaLine.visible = false;
+  actBtn.classList.remove('side');
+  q('trMap').hidden = true;
   cancel(); on = false; root.hidden = true; document.body.classList.remove('training'); S.visible = false; hideCrowd(true); camera.fov = fov0; camera.updateProjectionMatrix();
   cap.hidden = big.hidden = gauge.hidden = true; action(''); show(''); stick.hidden = true; drag.id = null;
   for (const k of Object.keys(keys)) keys[k] = false;
