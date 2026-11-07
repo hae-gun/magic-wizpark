@@ -4,9 +4,9 @@
    (THREE, renderer, makeChibi, UA, T, CH, me, ROSTER, toon, glow, lin, Audio_, Net, store, keys). */
 (() => {
 const GAMES = [
-  { id: 'bat', name: '타격 특훈', desc: '공이 홈플레이트에 오는 순간 Space나 화면 탭으로 스윙', max: 40 },
-  { id: 'pitch', name: '투구 특훈', desc: '움직이는 줄을 포수 미트 자리(초록 칸)에 멈추면 스트라이크', max: 30 },
-  { id: 'fly', name: '플라이볼 특훈', desc: '그림자를 보고 낙하 지점으로 달려가 잡기', max: 150 },
+  { id: 'bat', name: '타격 특훈', desc: '공이 홈플레이트에 오는 순간 Space나 화면 탭으로 스윙', ref: 30, made: (n) => `안타 ${n}개`, fail: '헛스윙하거나 그냥 보내면' },
+  { id: 'pitch', name: '투구 특훈', desc: '움직이는 줄을 포수 미트 자리(초록 칸)에 멈추면 스트라이크', ref: 30, made: (n) => `${n}구 연속 스트라이크`, fail: '볼을 하나라도 던지면' },
+  { id: 'fly', name: '플라이볼 특훈', desc: '그림자를 보고 낙하 지점으로 달려가 잡기', ref: 150, made: (n) => `${n}개 연속 캐치`, fail: '공을 하나라도 놓치면' },
 ];
 const PUNISH = [
   { id: 'flick', name: '딱밤 세 대', need: 3, btn: '딱밤!', order: '딱밤 세 대다! 이마 대!', done: '아야… 정신이 번쩍 듭니다!' },
@@ -15,7 +15,6 @@ const PUNISH = [
 ];
 const SCOLD = ['오늘 그게 뭐야!', '너 이리 와 봐!', '팬들이 다 보고 있었어!', '집에 갈 생각 하지 마라!'];
 const NUMS = ['하나', '둘', '셋', '넷', '다섯', '여섯', '일곱', '여덟', '아홉', '열'];
-const TRIES = 10;
 const STOP = Symbol('stop');
 
 /* ---------- styles and overlay ---------- */
@@ -228,7 +227,7 @@ function rankView(g) {
 }
 function choose() {
   const groups = ROSTER[CH].map(([pos, list]) => `<optgroup label="${pos}">${list.split(',').sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).map((r) => { const [n, nm] = r.split(' '); return `<option value="${r}">${n}번 ${nm}</option>`; }).join('')}</optgroup>`).join('');
-  show(`<button class="back">‹ 특훈장</button><h2>${GAMES[pick.game].name}</h2><p>${GAMES[pick.game].desc}. 열 번 기회가 있어요.</p>
+  show(`<button class="back">‹ 특훈장</button><h2>${GAMES[pick.game].name}</h2><p>${GAMES[pick.game].desc}.<br>${GAMES[pick.game].fail} 특훈 끝! 오래 버틸수록 점수가 쌓입니다.</p>
     <label for="trWho">특훈이 필요한 선수 (${T.name} 한국시리즈 엔트리)</label><select id="trWho">${groups}</select>
     <label>먼저 혼내기</label><div class="chips">${PUNISH.map((p, i) => `<button data-p="${i}" aria-pressed="${i === pick.punish}">${p.name}</button>`).join('')}</div>
     <button class="go">특훈 시작!</button>`);
@@ -286,8 +285,8 @@ async function session() {
   sfx('whistle');
   if (my !== token) return;
   if (Net.live()) Net.send(['tg', pick.game]);
-  const score = await [batting, pitching, fielding][pick.game]();
-  await result(score);
+  const run = await [batting, pitching, fielding][pick.game]();
+  await result(run.score, run.made);
 }
 const pickOne = (a) => { let i; do i = Math.floor(Math.random() * a.length); while (a.length > 1 && i === lastSay); lastSay = i; return a[i]; };
 
@@ -336,12 +335,12 @@ async function batting() {
   player.root.add(bat); bat.position.set(-0.18, 1.0, 0.22);
   coach.position.set(0, 0.25, -18.4); coach.rotation.y = 0;
   cam.position.set(0.55, 1.9, 4.2); cam.lookAt(-0.1, 1.0, -14);
-  let score = 0;
-  for (let i = 0; i < TRIES; i += 1) {
-    hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}구`);
+  let score = 0, out = 0;
+  for (let i = 0; ; i += 1) {
+    hudText(`<b>${score}</b> 점<br>${i + 1}구째<br><small>헛스윙하면 끝</small>`);
     // stance
     let swingT = -1, swungAt = 0, fly = null;
-    const tf = i >= 3 && Math.random() < 0.25 ? 1.2 - i * 0.02 : 1.02 - i * 0.04 + (Math.random() - 0.5) * 0.08;
+    const tf = i >= 3 && Math.random() < 0.25 ? 1.2 - Math.min(i, 20) * 0.015 : Math.max(0.55, 1.02 - i * 0.03) + (Math.random() - 0.5) * Math.min(0.2, 0.08 + i * 0.006);
     const kmh = Math.round(195 - 70 * Math.min(tf, 1.05));
     const stance = () => { bat.rotation.set(0.7, -Math.PI / 2, 0); player.root.rotation.y = 0; player.armL.p.rotation.set(-1.1, 0, 0.5); player.armR.p.rotation.set(-1.1, 0, -0.1); player.head.rotation.y = 1.25; };
     stance(); rest(coach);
@@ -393,12 +392,14 @@ async function batting() {
     if (result === 'miss' && swingT >= 0) text[1] = swungAt + 0.06 < arrive ? '너무 빨라요' : '너무 늦어요';
     shout(text[0], text[1], text[2]);
     if (result === 'hr') { sfx('chime'); pop(-0.85, 2, 0.15, 0xffc861, 14, 2.5, 3); }
-    hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}구`);
+    hudText(`<b>${score}</b> 점<br>${i + 1}구째<br><small>헛스윙하면 끝</small>`);
     await wait(result === 'hr' ? 1.9 : 1.2);
     clearTrail(); ball.visible = false;
+    if (pts) out += 1;
+    if (result === 'miss' || result === 'look') break;
   }
   tick = null; bat.removeFromParent();
-  return score;
+  return { score, made: out };
 }
 
 /* ---------- 2. pitching ---------- */
@@ -409,15 +410,15 @@ async function pitching() {
   S.userData.zone.visible = true;
   cam.position.set(1.3, 3.0, -26.5); cam.lookAt(0, 0.9, 0);
   const line = gauge.querySelector('.line'), time = gauge.querySelector('.time'), zoneEl = gauge.querySelector('.zone'), perfEl = gauge.querySelector('.perfect');
-  let score = 0;
-  for (let i = 0; i < TRIES; i += 1) {
-    hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}구`);
+  let score = 0, out = 0;
+  for (let i = 0; ; i += 1) {
+    hudText(`<b>${score}</b> 점<br>${i + 1}구째<br><small>볼 하나면 끝</small>`);
     // the catcher sets up somewhere new each pitch, and the green slot moves with the mitt
     const c = i < 2 ? 0.5 : 0.22 + Math.random() * 0.56, mitt = (c - 0.5) * 1.1;
     zoneEl.style.left = (c - 0.035) * 100 + '%'; perfEl.style.left = (c - 0.01) * 100 + '%';
     rest(player); rest(coach); coach.position.x = mitt; coach.root.position.y = -0.3; coach.legL.rotation.x = coach.legR.rotation.x = -1.2; coach.armL.p.rotation.set(-1.3, 0, 0.3);
     gauge.hidden = false; action('던지기!', 'Space 또는 탭');
-    const speed = 1.0 + i * 0.07, start = clock;
+    const speed = Math.min(3.2, 1.0 + i * 0.07), start = clock;
     let pos = 0, stopped = null, phase = Math.random();
     const timeUp = start + 5;
     stopped = await new Promise((done, fail) => {
@@ -459,12 +460,13 @@ async function pitching() {
     const text = { ace: ['칼제구!!', '+3점', '#ffc861'], strike: ['스트라이크!', '+2점', '#9fe6ff'], edge: ['스트라이크', '아슬아슬 +1점', '#fff'], ball: [stopped === null ? '시간 초과' : '볼!', '초록 칸을 노려요', '#ff8a8a'] }[kind];
     shout(...text);
     if (kind === 'ace') { sfx('chime'); pop(0, 1.2, 0.3, 0xffc861, 10, 1.5, 2); }
-    hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}구`);
+    hudText(`<b>${score}</b> 점<br>${i + 1}구째<br><small>볼 하나면 끝</small>`);
     await wait(1.2);
     clearTrail(); ball.visible = false; tick = null; player.root.rotation.set(0, 0, 0);
+    if (kind === 'ball') { out = i; break; }
   }
   gauge.hidden = true; S.userData.zone.visible = false;
-  return score;
+  return { score, made: out };
 }
 
 /* ---------- 3. fly balls ---------- */
@@ -497,7 +499,7 @@ async function fielding() {
   coach.position.set(0.8, 0, 0.3); coach.rotation.y = Math.PI;
   coach.root.add(bat); bat.position.set(0, 0.95, 0); bat.rotation.set(0.4, 0, 0);
   hudText('');
-  let score = 0, slideUntil = 0, slideReady = 0;
+  let score = 0, out = 0, slideUntil = 0, slideReady = 0;
   const dir = new THREE.Vector2(0, 1);
   const camAt = () => { const p = player.position; cam.position.lerp(new THREE.Vector3(p.x * 0.85, 6.0, p.z - 8.0), 0.12); cam.lookAt(p.x * 0.9, 0.6, p.z + 5); };
   cam.position.set(0, 6.0, (AREA.z0 + AREA.z1) / 2 - 8); camAt();
@@ -524,13 +526,13 @@ async function fielding() {
     camAt(); drawMap();
   };
   const coarse = matchMedia('(pointer:coarse)').matches;
-  for (let i = 0; i < TRIES; i += 1) {
-    hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}개<br><small>${coarse ? '화면을 끌어서 이동, 버튼으로 슬라이딩' : '방향키나 WASD로 이동, Space 슬라이딩'}</small>`);
+  for (let i = 0; ; i += 1) {
+    hudText(`<b>${score}</b> 점<br>${i + 1}개째<br><small>놓치면 끝, ${coarse ? '화면을 끌어서 이동, 버튼으로 슬라이딩' : '방향키나 WASD로 이동, Space 슬라이딩'}</small>`);
     tick = move; onAct = slide; action('슬라이딩', 'Space');
     await wait(i ? 0.7 : 1.4);
     // coach hits it
-    const T_ = Math.max(2.5, 3.6 - i * 0.11);
-    const p = player.position, ang = Math.random() * Math.PI * 2, dist = 2 + Math.random() * Math.min(3 + i * 0.5, 7);
+    const T_ = Math.max(2.3, 3.6 - i * 0.08);
+    const p = player.position, ang = Math.random() * Math.PI * 2, dist = 2 + Math.random() * Math.min(3 + i * 0.5, 9);
     const land = new THREE.Vector3(Math.max(-AREA.x + 1, Math.min(AREA.x - 1, p.x + Math.sin(ang) * dist)), 1.0, Math.max(AREA.z0 + 1, Math.min(AREA.z1 - 1, p.z + Math.cos(ang) * dist)));
     const from = new THREE.Vector3(0.6, 1.2, -0.3), g = 9.8, vy = (land.y - from.y + 0.5 * g * T_ * T_) / T_;
     const t0 = clock; let swing = 0;
@@ -558,22 +560,24 @@ async function fielding() {
     else if (d <= 1.6) { pts = 8; text = ['다이빙 캐치!', '+8점', '#9fe6ff']; ball.visible = false; sfx('clap'); player.root.rotation.x = 1.2; }
     else { text = ['놓쳤다!', '노란 원 안으로!', '#ff8a8a']; sfx('swish'); }
     score += pts; shout(...text); shadow.visible = false; landRing.visible = false;
-    hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}개`);
+    hudText(`<b>${score}</b> 점<br>${i + 1}개째`);
     if (pts === 0) {
       const v = new THREE.Vector3((Math.random() - 0.5) * 3, 3, -4);
       tick = (dt) => { move(dt); v.y -= 9.8 * dt; ball.position.addScaledVector(v, dt); if (ball.position.y < 0.11) { ball.position.y = 0.11; v.multiplyScalar(0.5); v.y = Math.abs(v.y); } };
     } else tick = move;
     await wait(1.1);
     player.root.rotation.x = 0; ball.visible = false; clearTrail();
+    if (pts === 0) { out = i; break; }
   }
   tick = null; onAct = null; action(''); bat.removeFromParent(); bat.rotation.set(0, 0, 0); landRing.visible = false; mapEl.hidden = true; areaLine.visible = false; actBtn.classList.remove('side');
-  return score;
+  return { score, made: out };
 }
 
 /* ---------- result and submit ---------- */
-async function result(score) {
-  const g = pick.game, G = GAMES[g], r = score / G.max;
+async function result(score, made) {
+  const g = pick.game, G = GAMES[g], r = score / G.ref;
   gauge.hidden = true; action(''); hudText('');
+  const myBestBefore = myBest(g);
   if (score > myBest(g)) store.set('train-best-' + G.id, score);
   const sent = Net.live();
   if (sent) { ranks[g] = null; Net.send(['tr', g, score, player.userData.name]); }
@@ -586,11 +590,11 @@ async function result(score) {
     if (good) { const s = Math.abs(Math.sin(clock * 6)); player.root.position.y = s * 0.35; player.armL.p.rotation.set(0, 0, 2.7); player.armR.p.rotation.set(0, 0, -2.7); }
     else { player.head.rotation.x = 0.45; player.root.rotation.x = 0.15; }
   };
-  const line = r >= 0.85 ? '특훈 완료! 내일은 MVP다!' : r >= 0.6 ? '많이 좋아졌어! 내일은 다르다!' : r >= 0.3 ? '아직 멀었다! 한 번 더!' : '…오늘은 푹 쉬고 내일 다시 보자.';
+  const line = r >= 1 ? '이건 특훈이 아니라 전설이다!' : r >= 0.6 ? '특훈 완료! 내일은 MVP다!' : r >= 0.35 ? '많이 좋아졌어! 내일은 다르다!' : r >= 0.12 ? '아직 멀었다! 한 번 더!' : '…오늘은 푹 쉬고 내일 다시 보자.';
   await say('coach', line, 1.7);
   await say('player', good ? '감사합니다 코치님!!' : '한 번만 더 해 주세요!', 1.4);
   cap.hidden = true;
-  show(`<h2>${G.name} 결과</h2><p>${esc(player.userData.label)} 선수 특훈</p><div class="score">${score}<small> / ${G.max}점</small></div>
+  show(`<h2>${G.name} 결과</h2><p>${esc(player.userData.label)} 선수 특훈</p><div class="score">${score}<small> 점</small></div><p class="note">${G.made(made)}${score > myBestBefore ? ' (내 최고 기록!)' : ''}</p>
     <p class="note">${line}</p><div data-rank="${g}">${rankList(g)}</div>
     <div class="row"><button data-again>한 번 더</button><button data-menu>다른 특훈</button><button data-out>구장으로</button></div>`);
   panel.querySelector('[data-again]').onclick = () => { show(''); guard(session); };
