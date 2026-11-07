@@ -105,7 +105,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #gate h1 em{font-style:normal;color:var(--kt-red);text-shadow:0 0 28px #e3122c}
 #gate p{font-size:15px;line-height:1.6;margin:12px 0 16px;color:#e9e0f0}
 #gate label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px}
-#numPick,#editPick{width:100%;box-sizing:border-box;padding:9px 10px;margin-bottom:10px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:5px;font:inherit;font-size:13px}#editPick{margin:3px 0 0}#gate .backRow{display:grid;grid-template-columns:1fr 76px;gap:8px}#numIn{text-align:center}#numIn{width:100%;box-sizing:border-box;padding:11px 12px;margin-bottom:10px;background:#ffffff14;border:1px solid var(--line);border-radius:5px}
+#innPick{min-height:38px;padding:3px 6px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px}#numPick,#editPick{width:100%;box-sizing:border-box;padding:9px 10px;margin-bottom:10px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:5px;font:inherit;font-size:13px}#editPick{margin:3px 0 0}#gate .backRow{display:grid;grid-template-columns:1fr 76px;gap:8px}#numIn{text-align:center}#numIn{width:100%;box-sizing:border-box;padding:11px 12px;margin-bottom:10px;background:#ffffff14;border:1px solid var(--line);border-radius:5px}
 #enter{width:100%;padding:13px;border-radius:5px;background:var(--kt-red);font:400 20px var(--display)}
 #gate footer{margin-top:12px;font-size:11px;line-height:1.5;color:var(--dim)}
 
@@ -144,6 +144,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
   <button id="msgBtn" aria-expanded="false">응원 메시지<kbd>C</kbd></button>
   <button id="actBtn" aria-expanded="false">격한 응원<kbd>X</kbd></button>
   <button id="seatBtn" aria-expanded="false">자리 이동<kbd>T</kbd></button>
+  <select id="innPick" hidden aria-label="재연할 회 고르기"></select>
   <button id="gameBtn" hidden aria-pressed="true">내 캐릭터 보기<kbd>V</kbd></button>
   <button id="boardBtn" aria-pressed="false">전광판 보기<kbd>B</kbd></button>
   <button id="songBtn" aria-pressed="true">응원가 끄기<kbd>L</kbd></button>
@@ -778,20 +779,21 @@ let demoTimer;
 function startDemo(mode){if(live.status==='demo'&&demoTimer)return;live.status='demo';fence.visible=true;$('mode').innerHTML=mode||'<b>시연 장면</b> 실제 중계가 아니며 점수와 순서는 꾸민 내용입니다';live.boardTitle='시연 장면 (실제 중계 아님)';live.first=true;Demo.step();demoTimer=setInterval(Demo.step,3400)}
 function stopDemo(){if(!demoTimer)return;clearInterval(demoTimer);demoTimer=null;live.state=null;live.seen.clear();live.last={};live.first=true;live.lines=[]}
 function applyLive(d){const g=d.game;
- const wasLive=live.gameLive;live.gameLive=g?.statusCode==='STARTED';fence.visible=live.gameLive;live.series=d.series||[];if(g?.statusCode==='RESULT'&&wasLive&&d.relay){const st=normalize(d.relay),my=live.teams.ktHome?st.home-st.away:st.away-st.home;if(my>0){shout('승리!');firework(T.kit.fx,T.gold,16);crowdBurst(1.3,8)}else if(my<0)crowdBurst(.03,4)}if(!g){stopDemo();live.takeover=null;live.imgbatter=live.imgpitcher=null;live.startAt=null;live.status='idle';live.state=null;live.lines=[];live.idle='오늘은 예정된 경기가 없습니다';live.label='경기 없음';live.boardTitle=`${T.title.join(' ')} 전광판`;$('mode').innerHTML='<b>경기 없음</b> 다음 경기를 기다리는 중입니다';renderHud();return POLL_MS*6}
+ const wasLive=live.gameLive;live.gameLive=g?.statusCode==='STARTED';fence.visible=live.gameLive;live.series=d.series||[];if(g?.statusCode==='RESULT'&&wasLive&&d.relay){const st=normalize(d.relay),my=live.teams.ktHome?st.home-st.away:st.away-st.home;if(my>0){shout('승리!');firework(T.kit.fx,T.gold,16);crowdBurst(1.3,8)}else if(my<0)crowdBurst(.03,4)}if(!g){stopDemo();Game.stopLive();live.takeover=null;live.imgbatter=live.imgpitcher=null;live.startAt=null;live.status='idle';live.state=null;live.lines=[];live.idle='오늘은 예정된 경기가 없습니다';live.label='경기 없음';live.boardTitle=`${T.title.join(' ')} 전광판`;$('mode').innerHTML='<b>경기 없음</b> 다음 경기를 기다리는 중입니다';renderHud();return POLL_MS*6}
  stopDemo();live.status='live';const ktHome=g.homeTeamCode===T.code;live.teams={home:g.homeTeamName,away:g.awayTeamName,ktHome,homeCode:g.homeTeamCode,awayCode:g.awayTeamCode};live.boardTitle=`${g.awayTeamName} : ${g.homeTeamName}`;
  const pre=/BEFORE|READY/.test(g.statusCode),done=g.statusCode==='RESULT',at=(g.gameDateTime||'').slice(11,16);
  {const start=pre&&g.gameDateTime?Date.parse(g.gameDateTime+'+09:00'):NaN;live.startAt=Number.isFinite(start)?start:null}live.label=pre?'경기 전':done?'경기 종료':undefined;if(pre||done)Song.stop();live.idle=pre?`오늘 ${at} 시작, 선발 ${g.awayStarterName||'미정'} 대 ${g.homeStarterName||'미정'}`:done?'오늘 경기는 끝났습니다':null;
  if(pre){$('mode').innerHTML=`<b>${at} 시작</b> 경기가 열리면 자동으로 중계합니다`;void 0}
  else{$('mode').innerHTML=done?'<b>경기 종료</b> 최종 기록':'<b>실시간</b> 약 10초 지연';void 0}
  if(d.relay){const first=!live.state;live.first=first;applyState(normalize(d.relay),first)}else renderHud();
+ if(live.gameLive&&!done&&!pre)Game.startLive();else Game.stopLive();
  return done?POLL_MS*6:POLL_MS}
 async function poll(){let wait=POLL_MS;try{const d=await getState();if(Date.now()-d.checkedAt>STALE_MS)throw new Error('stale');wait=applyLive(d);live.fail=0}
  catch(e){live.fail=(live.fail||0)+1;wait=20000;if(live.status==='live')$('mode').innerHTML='<b>연결 재시도 중</b> 마지막 정보를 보여 드립니다';else startDemo()}
  setTimeout(poll,wait)}
 /* ---------- demo only: characters replay a game on the field, from recorded plays or a sample ---------- */
 const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4],2:[0,-1.5],3:[-16.5,24],4:[-8,33],5:[16.5,24],6:[8,33],7:[26,49],8:[0,62],9:[-26,49]},LAND={lf:[26,45],lc:[14,58],cf:[0,66],rc:[-14,58],rf:[-26,45]},DUG={home:[-23,13],away:[23,13]},COVER={3:1,4:2,6:2,5:3,2:0,1:1},POSN={1:'투수',2:'포수',3:'1루수',4:'2루수',5:'3루수',6:'유격수',7:'좌익수',8:'중견수',9:'우익수'},LABEL={hr:'홈런',triple:'3루타',double:'2루타',single:'안타',k:'삼진 아웃',bb:'볼넷',hbp:'몸에 맞는 공',error:'실책',fc:'야수선택',bunt:'번트 아웃',ground:'땅볼 아웃',fly:'뜬공 아웃',line:'직선타 아웃',dp:'병살타'},WORD={B:'볼',S:'스트라이크',F:'파울',W:'헛스윙',X:'타격'};
- let on=false,rest=false,cam=false,stay=false,idle=0,actors=new Set(),timers=[],flight=null,team={},D=null,batter=null,bases=[null,null,null,null],lineup={home:{},away:{}},S,focus=new THREE.Vector3(0,1,18),frame=0;
+ let liveMode=false,events=[],cur=0,played=0,queue=[],busy=false,liveGame='',on=false,rest=false,cam=false,stay=false,idle=0,actors=new Set(),timers=[],flight=null,team={},D=null,batter=null,bases=[null,null,null,null],lineup={home:{},away:{}},S,focus=new THREE.Vector3(0,1,18),frame=0;
  const ball=new THREE.Mesh(new THREE.SphereGeometry(.2,14,10),glow(0xffffff));ball.visible=false;scene.add(ball);
  const fresh=()=>({inn:1,top:true,home:0,away:0,hH:0,aH:0,hE:0,aE:0,b:0,s:0,o:0,lines:{home:{},away:{}},plays:[],n:0,batter:null,pitcher:null});
  const spawn=(u,num,name,head)=>{const c=makeChibi({u,num,name,key:name+num,look:LOOKS[name],headgear:head});c.scale.setScalar(1.42);scene.add(c);const a={c,to:null,sp:9,done:null,phase:rand(6),over:null,ot:0,od:0,odone:null,ready:false,gear:null};actors.add(a);return a};
@@ -806,8 +808,8 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
  const armUp=(k,a)=>{const c=a.c;c.armR.p.rotation.set(k<.6?-k/.6*2.9:-2.9+(k-.6)/.4*2.4,0,-.1)};
  const throwTo=async(a,x,z)=>{face(a,x,z);anim(a,.32,armUp);await wait(.2);const dist=Math.hypot(x-a.c.position.x,z-a.c.position.z);await fly(hand(a),P(x,1.8,z),Math.min(dist*.05,2.4),Math.max(.3,dist/34))};
  /* state pushed to the existing scoreboard, cards and crowd reactions */
- const say=text=>{S.plays.push({id:'g'+S.n++,text,inn:S.inn,top:S.top});S.plays=S.plays.slice(-12)};
- const push=()=>applyState({inn:S.inn,top:S.top,home:S.home,away:S.away,hH:S.hH,aH:S.aH,hE:S.hE,aE:S.aE,b:S.b,s:S.s,o:Math.min(S.o,3),bases:bases.slice(1).map(Boolean),batter:S.batter,pitcher:S.pitcher,plays:S.plays,lines:S.lines,lineup},false);
+ const say=text=>{if(liveMode)return;S.plays.push({id:'g'+S.n++,text,inn:S.inn,top:S.top});S.plays=S.plays.slice(-12)};
+ const push=()=>liveMode||applyState({inn:S.inn,top:S.top,home:S.home,away:S.away,hH:S.hH,aH:S.aH,hE:S.hE,aE:S.aE,b:S.b,s:S.s,o:Math.min(S.o,3),bases:bases.slice(1).map(Boolean),batter:S.batter,pitcher:S.pitcher,plays:S.plays,lines:S.lines,lineup},false);
  const bat=S=>S.top?'away':'home',def=S=>S.top?'home':'away';
  const addRuns=n=>{if(!n)return;const b=bat(S);S[b]+=n;S.lines[b][S.inn]=(S.lines[b][S.inn]||0)+n;const o=S.lines[def(S)];if(o[S.inn]==null&&!S.top)o[S.inn]=o[S.inn]||0};
  const toDugout=a=>{if(a.gear){a.c.armR.socket.remove(a.gear.R);a.gear=null}const side=bat(S);run(a,...DUG[side],8).then(()=>drop(a))};
@@ -829,8 +831,10 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
  const go=async(a,from,to,sp)=>{const end=to||from+1;for(let b=from+1;b<=Math.min(end,4);b++){await run(a,...BASE[b%4],sp);if(!a.c.parent)return}if(to===0){drop(a)}else if(to===4)toDugout(a)};
  const moveRunners=(list,e,sp)=>{const next=[null,null,null,null];const jobs=[];let outs=0;const runs=[];for(const[b,to]of list){const a=bases[b];bases[b]=null;if(to===b){next[b]=a;continue}if(to===0)outs++;if(to===4)runs.push(a);if(to>0&&to<4)next[to]=a;jobs.push(go(a,b,to,sp))}for(let b=1;b<=3;b++)if(next[b])bases[b]=next[b];return{jobs,outs,runs:runs.length}};
  const nearOF=(x,z)=>[7,8,9].sort((p,q)=>Math.hypot(SPOT[p][0]-x,SPOT[p][1]-z)-Math.hypot(SPOT[q][0]-x,SPOT[q][1]-z))[0];
- const line=(e,extra='')=>{const r=e.res;say(`${e.batter} ${r.field?POSN[r.field]+' ':''}${LABEL[r.type]}${extra}`)};
- const result=async e=>{const r=e.res,t=r.type,b=batter;batter=null;const started=['k','bb','hbp'].includes(t);const m=dest(e,t);
+ const line=(e,extra='')=>{const r=e.res;say(`${e.batter} ${r.field?POSN[r.field]+' ':''}${LABEL[fcOf(e)]}${extra}`)};
+ const ghost=from=>{if(bases[from]||from<1||from>3)return;const a=spawn(teamU(bat(S)),String(10+from*13),'','helmet');place(a,...BASE[from]);bases[from]=a};
+ const fcOf=e=>e.res?.type==='ground'&&(e.runners||[]).some(q=>q.to===0)?'fc':e.res?.type;
+ const result=async e=>{for(const q of e.runners||[])ghost(q.from);const r=e.res,t=fcOf(e),b=batter;batter=null;const started=['k','bb','hbp'].includes(t);const m=dest(e,t);
   const takeBase=(to,sp)=>{bases[to]=b;return go(b,0,to,sp)};
   if(t==='k'){S.o++;line(e);push();toDugout(b);await wait(1.2);return}
   if(t==='bb'||t==='hbp'){if(b.gear){b.c.armR.socket.remove(b.gear.R);b.gear=null}const mv=moveRunners(m);addRuns(mv.runs);line(e,mv.runs?', 득점':'');push();await Promise.all([takeBase(1,7),...mv.jobs]);return}
@@ -852,11 +856,37 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
   const list=[...(e.pitches||[])],t=e.res?.type;if(t==='k'&&!/[WS]$/.test(list.join('')))list.push('W');if((t==='bb')&&list.at(-1)!=='B')list.push('B');if(t==='hbp'&&!list.length)list.push('B');if(e.res&&!['k','bb','hbp'].includes(t)&&list.at(-1)!=='X')list.push('X');
   const shown=list.slice(-3);list.slice(0,list.length-shown.length).forEach(count);if(list.length>shown.length){push()}
   let i=list.length-shown.length;for(const c of shown){i++;await pitch(c);if(c!=='X'){count(c);say(`${i}구 ${WORD[c]}`);push()}}
-  for(const q of e.mid||[]){const r=bases[q.from];if(!r)continue;bases[q.from]=null;if(q.to>0&&q.to<4)bases[q.to]=r;if(q.to===0)S.o++;await go(r,q.from,q.to,10);push()}
+  for(const q of e.mid||[]){ghost(q.from);const r=bases[q.from];if(!r)continue;bases[q.from]=null;if(q.to>0&&q.to<4)bases[q.to]=r;if(q.to===0)S.o++;await go(r,q.from,q.to,10);push()}
   if(e.res)await result(e);else{toDugout(a);batter=null}
   if(actors.has(a))a.bat=false;home();await wait(1.1)};
  const change=async e=>{await wait(.8);rest=true;for(let b=1;b<=3;b++)if(bases[b]){toDugout(bases[b]);bases[b]=null}await leaveField();S.inn=e.inn;S.top=e.top;S.o=S.b=S.s=0;push();await wait(12);rest=false;await takeField(def(S));await wait(.6)};
- const play=async events=>{for(;;){S=fresh();live.seen.clear();live.last={};live.first=true;live.lines=[];S.inn=events[0].inn;S.top=events[0].top;await takeField(def(S));for(const e of events){if(e.inn!==S.inn||e.top!==S.top)await change(e);await pa(e)}await wait(2);say('경기 재연이 끝났습니다');push();await wait(5);await leaveField();for(let b=1;b<=3;b++)if(bases[b]){drop(bases[b]);bases[b]=null}}};
+ /* tallies the plays before a point without animating them, so the demo can jump to any half inning */
+ const simulate=upto=>{const T2=fresh();let b=[0,0,0,0],half='';const adv={single:1,double:2,triple:3,hr:4,error:1};
+  for(let i=0;i<upto;i++){const e=events[i],k=e.inn+(e.top?'t':'b');if(k!==half){half=k;b=[0,0,0,0];T2.inn=e.inn;T2.top=e.top;T2.lines[T2.top?'away':'home'][e.inn]??=0}
+   const side=e.top?'away':'home',t=fcOf(e);let runs=0;const move=(from,to)=>{b[from]=0;if(to>=4)runs++;else if(to>0)b[to]=1};
+   for(const q of e.mid||[]){b[q.from]=1;move(q.from,q.to)}
+   if(t){const exp=new Map((e.runners||[]).map(m=>[m.from,m.to]));for(const x of exp.keys())b[x]=1;const forced=t==='bb'||t==='hbp';
+    for(let x=3;x>=1;x--){if(!b[x])continue;let to=exp.has(x)?exp.get(x):x+(adv[t]||0);if(forced&&!exp.has(x)){let full=true;for(let y=1;y<x;y++)if(!b[y])full=false;to=full?x+1:x}if(t==='dp'&&!exp.has(x)&&x===1)to=0;if(to!==x)move(x,Math.min(to,4))}
+    const hit={single:1,double:2,triple:3}[t],to=t==='hr'?4:hit?(e.res.to||hit):['bb','hbp','error','fc'].includes(t)?1:0;if(to>=4)runs++;else if(to)b[to]=1;
+    if(hit||t==='hr')T2[side==='home'?'hH':'aH']++;if(t==='error')T2[side==='home'?'aE':'hE']++}
+   T2[side]+=runs;T2.lines[side][e.inn]=(T2.lines[side][e.inn]||0)+runs}
+  return T2};
+ const halves=()=>{const out=[];events.forEach((e,i)=>{const k=e.inn+(e.top?'t':'b');if(!out.length||out.at(-1).k!==k)out.push({k,i,label:`${e.inn}회${e.top?'초':'말'}`})});return out};
+ let gen=0;
+ const reset=()=>{gen++;timers.length=0;flight=null;ball.visible=false;for(const a of[...actors])drop(a);bases=[null,null,null,null];batter=null;team.home=makeTeam('home');team.away=makeTeam('away')};
+ const play=async(from=0)=>{const my=gen;for(;;){S=from?simulate(from):fresh();live.seen.clear();live.last={};live.first=true;live.lines=[];S.inn=events[from].inn;S.top=events[from].top;S.o=S.b=S.s=0;push();await takeField(def(S));
+  for(let i=from;i<events.length;i++){if(my!==gen)return;cur=i;const e=events[i];if(e.inn!==S.inn||e.top!==S.top)await change(e);await pa(e)}
+  if(my!==gen)return;await wait(2);say('경기 재연이 끝났습니다');push();await wait(5);await leaveField();for(let b=1;b<=3;b++)if(bases[b]){drop(bases[b]);bases[b]=null}from=0}};
+ const seek=i=>{reset();rest=false;play(i).catch(e=>console.error(e))};
+ /* live: new plate appearances from the collector are played on the field as they come in */
+ const pollLive=async()=>{if(!liveMode)return;try{const r=await fetch(API+'/replay.json',{cache:'no-store'});if(r.ok){const j=await r.json(),done=(j.events||[]).filter(e=>e.res);lineup=j.lineup||lineup;
+   if(j.gameId!==liveGame){liveGame=j.gameId;played=done.length;queue=[]}
+   else{for(;played<done.length;played++)queue.push(done[played]);if(queue.length>3)queue=queue.slice(-2)}}}catch{}
+  if(liveMode)setTimeout(pollLive,8000)};
+ const runLive=async()=>{if(busy)return;busy=true;const my=gen;try{while(liveMode&&my===gen){const e=queue.shift();if(!e){await wait(1);continue}
+   if(e.inn!==S.inn||e.top!==S.top)await change(e);await pa(e)}}finally{busy=false}};
+ const startLive=()=>{if(liveMode||DEMO)return;liveMode=true;on=true;cam=false;stay=true;$('gameBtn').hidden=false;label();reset();S=fresh();const st=live.state;S.inn=st?.inn||1;S.top=st?!!st.top:true;takeField(def(S)).then(()=>runLive());liveGame='';pollLive()};
+ const stopLive=()=>{if(!liveMode)return;liveMode=false;gen++;queue=[];timers.length=0;for(const a of[...actors])drop(a);ball.visible=false;on=false;cam=false;$('gameBtn').hidden=true;nav.snap=true};
  const SAMPLE=(()=>{const L={home:{batter:['허경민','김상수','안현민','김현수','장성우','배정대','오윤석','김민혁','최원준'].map((n,i)=>({pcode:'h'+i,name:n,posName:'',batOrder:i+1})),pitcher:[{pcode:'hp',name:'고영표'}]},away:{batter:['김지찬','김성윤','구자욱','디아즈','강민호','최형우','김영웅','이재현','류지혁'].map((n,i)=>({pcode:'a'+i,name:n,posName:'',batOrder:i+1})),pitcher:[{pcode:'ap',name:'원태인'}]}};
   const E=(inn,top,order,pitches,type,field=0,dir=null,more={})=>({inn,top,order,batter:(top?L.away:L.home).batter[order-1].name,pitcher:'',pitches:[...pitches],mid:[],res:{type,field,relay:[],dir,foul:false,sac:false,to:null,...(more.res||{})},runners:more.runners||[]});
   return{lineup:L,events:[E(1,true,1,'BSX','ground',6),E(1,true,2,'BBX','single',7,'lf'),E(1,true,3,'SFX','fly',8,'cf'),E(1,true,4,'BSWW','k'),
@@ -865,7 +895,8 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
  const start=async()=>{on=true;cam=false;stay=true;live.status='demo';fence.visible=true;$('gameBtn').hidden=false;label();let src=null;try{const r=await fetch(API+'/replay.json',{cache:'no-store'});if(r.ok){const j=await r.json();if(j.events?.length>=5)src=j}}catch{}
   if(src){live.teams={home:src.home,away:src.away,ktHome:src.homeCode===T.code,homeCode:src.homeCode,awayCode:src.awayCode};lineup=src.lineup;live.boardTitle=`${src.away} : ${src.home} 재연`;$('mode').innerHTML='<b>경기 재연</b> 실제 기록을 따라가지만 공 위치와 세부 동작은 추정입니다'}
   else{lineup=SAMPLE.lineup;src=SAMPLE;live.boardTitle='경기 재연 시험 (실제 경기 아님)';$('mode').innerHTML='<b>경기 재연 시험</b> 실제 경기가 아니며 꾸민 내용입니다'}
-  team.home=makeTeam('home');team.away=makeTeam('away');play(src.events).catch(e=>console.error(e))};
+  events=src.events;reset();innPicker();play(0).catch(e=>console.error(e))};
+ const innPicker=()=>{const sel=$('innPick');sel.hidden=false;sel.textContent='';sel.add(new Option('회 고르기',''));for(const h of halves())sel.add(new Option(h.label,h.i));sel.onchange=()=>{if(sel.value!=='')seek(+sel.value);sel.value=''}};
  const step=(dt,t)=>{if(!on)return;frame++;for(let i=timers.length-1;i>=0;i--){const q=timers[i];q.t-=dt;if(q.t<=0){timers.splice(i,1);q.r()}}
   if(flight){const f=flight;f.t+=dt;const k=Math.min(1,f.t/f.dur);ball.position.lerpVectors(f.from,f.to,k);ball.position.y+=f.ground?Math.abs(Math.sin(k*9))*(1-k)*.9:4*f.h*k*(1-k);if(frame%2===0)FX.emit(ball.position.x,ball.position.y,ball.position.z,'#ffffff',1,.2,.28,.22);if(k>=1){flight=null;f.r()}}
   for(const a of actors){const c=a.c;if(!c.visible)continue;if(a.to){const dx=a.to[0]-c.position.x,dz=a.to[1]-c.position.z,l=Math.hypot(dx,dz);if(l<a.sp*dt+.05){c.position.x=a.to[0];c.position.z=a.to[1];a.to=null;const r=a.done;a.done=null;r?.()}else{c.position.x+=dx/l*a.sp*dt;c.position.z+=dz/l*a.sp*dt;c.rotation.y=Math.atan2(dx,dz);a.phase+=dt*14;const s=Math.sin(a.phase);c.legL.rotation.x=s*.8;c.legR.rotation.x=-s*.8;c.armR.p.rotation.set(-s*.9,0,-.14);c.armL.p.rotation.set(s*.9,0,.14);c.root.rotation.set(.18,0,0);c.root.position.y=Math.abs(s)*.09}}
@@ -876,7 +907,7 @@ const Game=(()=>{const d=19.4,BASE=[[0,0],[-d,d],[0,d*2],[d,d]],SPOT={1:[0,18.4]
  const setCam=v=>{if(cam===v)return;cam=v;if(!v)nav.snap=true;label()};
  /* moving shows your character, standing still returns to the game, unless V asked to stay */
  const follow=(dt,busy)=>{if(!on)return;const now=performance.now();if(busy){idle=now;setCam(false);return}if(!stay&&!cam&&now-idle>3500)setCam(true)};
- return{start,step,follow,get rest(){return rest},get cam(){return on&&cam},toggle(){stay=cam;idle=performance.now();setCam(!cam)},focus,on:()=>on,get S(){return S},get actors(){return actors}}})();
+ return{start,step,follow,seek,startLive,stopLive,get liveMode(){return liveMode},get rest(){return rest},get cam(){return on&&cam},toggle(){stay=cam;idle=performance.now();setCam(!cam)},focus,on:()=>on,get S(){return S},get actors(){return actors}}})();
 
 /* the player has to stay visible, so people can drag it out of the way; the spot is remembered */
 (()=>{const b=$('song'),h=$('songHead');let d=null;const put=(x,y)=>{b.style.left=clamp(x,4,innerWidth-212)+'px';b.style.top=clamp(y,4,innerHeight-250)+'px';b.style.bottom='auto'};const s=String(store.get('songPos','')).split(',').map(Number);if(s.length===2&&s.every(Number.isFinite))put(s[0],s[1]);h.style.cursor='move';h.style.touchAction='none';h.onpointerdown=e=>{if(e.target.closest('button'))return;const r=b.getBoundingClientRect();d=[e.clientX-r.left,e.clientY-r.top];h.setPointerCapture(e.pointerId)};h.onpointermove=e=>{if(d)put(e.clientX-d[0],e.clientY-d[1])};h.onpointerup=h.onpointercancel=()=>{if(d){d=null;store.set('songPos',parseInt(b.style.left)+','+parseInt(b.style.top))}}})();
