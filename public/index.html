@@ -1104,7 +1104,7 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/10
  Net.move();Net.step(dt,t);Bench.step(dt,t);Game.step(dt,t);FX.step(dt);composer.render(dt);frames++}
 
 /* the training minigame lives in its own file and loads on first use */
-function openTrain(){closeDrawer();if(window.Train){Train.open();return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=11e9a1f1794061188';s.onload=()=>{b.disabled=false;Train.open()};s.onerror=()=>{b.disabled=false};document.body.append(s)}
+function openTrain(){closeDrawer();if(window.Train){Train.open();return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=5ebf8f71794061302';s.onload=()=>{b.disabled=false;Train.open()};s.onerror=()=>{b.disabled=false};document.body.append(s)}
 $('trainBtn').onclick=openTrain;
 renderHud();
 Promise.race([Promise.all([document.fonts?.ready,document.fonts?.load('40px "Alfa Slab One"')]).catch(()=>{}),new Promise(r=>setTimeout(r,1500))]).then(()=>{dress(hero,me.u,me.num,me.nick);renderBoard()});

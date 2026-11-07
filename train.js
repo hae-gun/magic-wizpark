@@ -5,7 +5,7 @@
 (() => {
 const GAMES = [
   { id: 'bat', name: '타격 특훈', desc: '공이 홈플레이트에 오는 순간 Space나 화면 탭으로 스윙', max: 40 },
-  { id: 'pitch', name: '투구 특훈', desc: '움직이는 줄을 가운데 칸에 멈추면 스트라이크', max: 30 },
+  { id: 'pitch', name: '투구 특훈', desc: '움직이는 줄을 포수 미트 자리(초록 칸)에 멈추면 스트라이크', max: 30 },
   { id: 'fly', name: '플라이볼 특훈', desc: '그림자를 보고 낙하 지점으로 달려가 잡기', max: 150 },
 ];
 const PUNISH = [
@@ -404,13 +404,16 @@ async function pitching() {
   coach.position.set(0, 0, 0.75); coach.rotation.y = Math.PI;
   S.userData.zone.visible = true;
   cam.position.set(1.3, 3.0, -26.5); cam.lookAt(0, 0.9, 0);
-  const line = gauge.querySelector('.line'), time = gauge.querySelector('.time');
+  const line = gauge.querySelector('.line'), time = gauge.querySelector('.time'), zoneEl = gauge.querySelector('.zone'), perfEl = gauge.querySelector('.perfect');
   let score = 0;
   for (let i = 0; i < TRIES; i += 1) {
     hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}구`);
-    rest(player); rest(coach); coach.root.position.y = -0.3; coach.legL.rotation.x = coach.legR.rotation.x = -1.2; coach.armL.p.rotation.set(-1.3, 0, 0.3);
+    // the catcher sets up somewhere new each pitch, and the green slot moves with the mitt
+    const c = i < 2 ? 0.5 : 0.22 + Math.random() * 0.56, mitt = (c - 0.5) * 1.1;
+    zoneEl.style.left = (c - 0.035) * 100 + '%'; perfEl.style.left = (c - 0.01) * 100 + '%';
+    rest(player); rest(coach); coach.position.x = mitt; coach.root.position.y = -0.3; coach.legL.rotation.x = coach.legR.rotation.x = -1.2; coach.armL.p.rotation.set(-1.3, 0, 0.3);
     gauge.hidden = false; action('던지기!', 'Space 또는 탭');
-    const speed = 1.1 + i * 0.24, start = clock;
+    const speed = 1.0 + i * 0.07, start = clock;
     let pos = 0, stopped = null, phase = Math.random();
     const timeUp = start + 5;
     stopped = await new Promise((done, fail) => {
@@ -426,15 +429,15 @@ async function pitching() {
       onAct = () => { onAct = null; tick = null; done(pos); };
     });
     onAct = null; action('');
-    const d = stopped === null ? 1 : Math.abs(stopped - 0.5);
+    const d = stopped === null ? 1 : Math.abs(stopped - c);
     const kind = d <= 0.01 ? 'ace' : d <= 0.035 ? 'strike' : d <= 0.07 ? 'edge' : 'ball';
     const pts = { ace: 3, strike: 2, edge: 1 }[kind] || 0;
     score += pts;
     // throw: strikes land in the zone, a miss sails wide
-    const off = stopped === null ? 0.5 : stopped - 0.5;
+    const off = stopped === null ? 0.5 : stopped - c;
     const tgt = kind === 'ball'
-      ? new THREE.Vector3(Math.sign(off || 1) * (0.62 + Math.random() * 0.4), 0.35 + Math.random() * 1.2, 0.2)
-      : new THREE.Vector3(off * 4, 0.86 + (Math.random() - 0.5) * 0.25 * (kind === 'edge' ? 2 : 1), 0.2);
+      ? new THREE.Vector3(mitt + Math.sign(off || 1) * (0.62 + Math.random() * 0.4), 0.35 + Math.random() * 1.2, 0.2)
+      : new THREE.Vector3(mitt + off * 4, 0.86 + (Math.random() - 0.5) * 0.25 * (kind === 'edge' ? 2 : 1), 0.2);
     const t0 = clock, wind = 0.55, flight = 0.48;
     const from = new THREE.Vector3(-0.3, 1.75, -17.7);
     tick = () => {
@@ -449,7 +452,7 @@ async function pitching() {
       }
     };
     await wait(wind + flight + 0.05);
-    const text = { ace: ['칼제구!!', '+3점', '#ffc861'], strike: ['스트라이크!', '+2점', '#9fe6ff'], edge: ['스트라이크', '아슬아슬 +1점', '#fff'], ball: [stopped === null ? '시간 초과' : '볼!', '가운데를 노려요', '#ff8a8a'] }[kind];
+    const text = { ace: ['칼제구!!', '+3점', '#ffc861'], strike: ['스트라이크!', '+2점', '#9fe6ff'], edge: ['스트라이크', '아슬아슬 +1점', '#fff'], ball: [stopped === null ? '시간 초과' : '볼!', '초록 칸을 노려요', '#ff8a8a'] }[kind];
     shout(...text);
     if (kind === 'ace') { sfx('chime'); pop(0, 1.2, 0.3, 0xffc861, 10, 1.5, 2); }
     hudText(`<b>${score}</b> 점<br>${i + 1} / ${TRIES}구`);
