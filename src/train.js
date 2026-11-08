@@ -17,19 +17,22 @@ const PUNISH = [
   { id: 'hands', name: '손 들고 벌서기', need: 5, btn: '더 높이!', order: '손 들어! 내리면 처음부터다!', done: '팔이… 후들후들… 반성했습니다!' },
 ];
 const SCOLD = ['오늘 그게 뭐야!', '너 이리 와 봐!', '팬들이 다 보고 있었어!', '집에 갈 생각 하지 마라!'];
-// A manager is spoken to politely and answers like one: calm, owning the result, never grovelling.
+// Fans are really angry with the manager, so they shout about the decisions (never insults or anything personal),
+// and he takes it like a manager: short, owning the result, no grovelling.
 const BOSS = {
-  scold: ['감독님, 오늘 경기 보다가 속이 다 탔습니다.', '감독님, 팬들 마음 아시죠?', '감독님, 잠깐 이야기 좀 나누시죠.', '감독님, 오늘 작전은 좀…'],
-  bow: '팬 여러분께 면목이 없습니다.',
-  order: { flick: '실례지만… 딱밤 세 대만 맞아 주시겠어요?', squat: '감독님도 앉았다 일어나기 열 번, 부탁드립니다!', hands: '죄송하지만 잠시 손 좀 들어 주시겠어요?' },
-  taps: { flick: ['허허, 맵습니다.', '음… 정신이 번쩍 드네요.', '팬심, 잘 받았습니다.'], hands: ['허허…', '이 정도야 뭐…', '팔이 좀…', '선수들 마음을 알겠군요…', '반성하겠습니다…'] },
-  done: { flick: '내일은 꼭 이기겠습니다.', squat: '헉… 선수들보다 제가 먼저 뛰어야겠네요.', hands: '팬 여러분 뜻, 무겁게 받겠습니다.' },
-  start: '그럼 감독님도 같이 특훈 가시죠!',
-  rush: '감독님, 10초만 이마 좀 빌려주세요!',
-  ouch: ['허허!', '아이고!', '맵습니다!', '알겠습니다, 알겠어요!', '작전 다시 짜겠습니다!', '이마가 얼얼하네요…', '팬심이 묵직합니다!'],
-  rushEnd: (n) => n >= 90 ? '혹이 났네요. 이 혹은 우승으로 갚겠습니다.' : n >= 50 ? '얼얼하네요. 팬 여러분 마음, 잘 알겠습니다.' : '허허, 이 정도면 견딜 만합니다.',
-  grade: (r) => r >= 1 ? '감독님, 현역 복귀하셔도 되겠습니다!' : r >= 0.6 ? '역시 감독님! 내일 경기도 부탁드립니다!' : r >= 0.35 ? '감독님, 그래도 많이 좋아지셨습니다!' : r >= 0.12 ? '감독님… 한 번 더 하시죠!' : '…감독님은 작전에 집중하시는 걸로.',
-  thanks: (good) => good ? '팬 여러분 덕분입니다. 내일 꼭 보답하겠습니다.' : '허허, 몸이 예전 같지 않네요. 한 번 더 하겠습니다.',
+  scold: ['감독님!! 오늘 그 투수 교체는 대체 뭡니까!', '감독님, 번트를 왜 거기서 대요!!', '감독님! 팬들 속 터져 죽습니다!', '감독님, 오늘 작전 누가 짰습니까!!', '감독님!! 대타 타이밍 진짜 너무하셨어요!'],
+  bow: '…할 말이 없습니다. 제 판단이 짧았습니다.',
+  order: { flick: '딱밤 세 대! 이마 대세요, 감독님!', squat: '앉았다 일어나기 열 번! 선수들만 뛰는 거 아닙니다!', hands: '손 드세요! 오늘 경기 반성하실 때까지!' },
+  taps: { flick: ['읏, 따끔하네요.', '…맞을 만합니다.', '알겠습니다, 정신 바짝 차리겠습니다.'], hands: ['…', '버티겠습니다.', '선수들 마음을 알겠군요…', '팔이 좀…', '반성하고 있습니다…'] },
+  done: { flick: '내일은 꼭 이기겠습니다. 약속드립니다.', squat: '헉… 선수들보다 제가 먼저 뛰어야겠네요.', hands: '팬 여러분 화, 무겁게 받겠습니다.' },
+  start: '이제 감독님도 특훈입니다! 도망 못 가십니다!',
+  rush: '감독님, 오늘 쌓인 거 10초 안에 다 풉니다! 이마 대세요!',
+  ouch: ['읏!', '아이고!', '제 탓입니다!', '알겠습니다, 알겠어요!', '작전 다시 짜겠습니다!', '이마가 얼얼하네요…', '맞아도 할 말 없습니다!'],
+  rushEnd: (n) => n >= 90 ? '혹이 났네요. 이 혹은 우승으로 갚겠습니다.' : n >= 50 ? '얼얼하네요. 팬 여러분 화, 잘 알겠습니다.' : '…이 정도로 풀리실 화가 아닌 거 압니다.',
+  grade: (r) => r >= 1 ? '…이 실력이면 직접 대타 나가시지 그러셨어요!' : r >= 0.6 ? '그래, 이거예요! 경기도 이렇게 하시라고요!' : r >= 0.35 ? '아직 멀었습니다! 내일 경기 보고 다시 판단하겠습니다!' : r >= 0.12 ? '감독님!! 이게 뭡니까! 한 번 더!' : '…오늘 경기랑 똑같네요. 할 말이 없습니다.',
+  thanks: (good) => good ? '…경기에서도 이렇게 하겠습니다.' : '…변명하지 않겠습니다. 한 번 더 하겠습니다.',
+  rushLine: '오늘은 이 정도로 참겠습니다. 내일 지면 또 옵니다!',
+  rushThanks: '팬 여러분 화, 이마로 다 받았습니다. 내일 보여드리겠습니다.',
 };
 const boss = () => !!player?.userData.boss;
 const NUMS = ['하나', '둘', '셋', '넷', '다섯', '여섯', '일곱', '여덟', '아홉', '열'];
@@ -687,9 +690,9 @@ async function result(score, made) {
     else { player.head.rotation.x = 0.45; player.root.rotation.x = 0.15; }
   };
   const rush = g === 3;
-  const line = rush ? (boss() ? '감독님, 끝까지 맞아 주셔서 감사합니다!' : '오늘은 이 정도로 봐준다!') : boss() ? BOSS.grade(r) : r >= 1 ? '이건 특훈이 아니라 전설이다!' : r >= 0.6 ? '특훈 완료! 내일은 MVP다!' : r >= 0.35 ? '많이 좋아졌어! 내일은 다르다!' : r >= 0.12 ? '아직 멀었다! 한 번 더!' : '…오늘은 푹 쉬고 내일 다시 보자.';
+  const line = rush ? (boss() ? BOSS.rushLine : '오늘은 이 정도로 봐준다!') : boss() ? BOSS.grade(r) : r >= 1 ? '이건 특훈이 아니라 전설이다!' : r >= 0.6 ? '특훈 완료! 내일은 MVP다!' : r >= 0.35 ? '많이 좋아졌어! 내일은 다르다!' : r >= 0.12 ? '아직 멀었다! 한 번 더!' : '…오늘은 푹 쉬고 내일 다시 보자.';
   await say('coach', line, 1.7);
-  await say('player', rush ? (boss() ? '팬 여러분 마음, 이마로 잘 받았습니다.' : '감사합니다…! 내일은 잘하겠습니다!') : boss() ? BOSS.thanks(good) : good ? '감사합니다 코치님!!' : '한 번만 더 해 주세요!', 1.4);
+  await say('player', rush ? (boss() ? BOSS.rushThanks : '감사합니다…! 내일은 잘하겠습니다!') : boss() ? BOSS.thanks(good) : good ? '감사합니다 코치님!!' : '한 번만 더 해 주세요!', 1.4);
   cap.hidden = true;
   show(`<h2>${G.name} 결과</h2><p>${esc(player.userData.label)}${boss() ? '님과 함께한 특훈' : ' 선수 특훈'}</p><div class="score">${score}<small> 점</small></div><p class="note">${G.made(made)}${score > myBestBefore ? ' (내 최고 기록!)' : ''}</p>
     <p class="note">${line}</p>${sent && score > 0 ? `<div class="nickForm"><label for="trNick">랭킹에 올릴 닉네임</label><div class="nickRow"><input id="trNick" maxlength="8" autocomplete="off" placeholder="2~8자" value="${esc(store.get('train-nick', ''))}"><button data-nick>등록</button></div><p class="nickErr"></p></div>` : ''}<div data-rank="${g}">${rankList(g)}</div>
