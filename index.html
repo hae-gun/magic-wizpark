@@ -1075,7 +1075,7 @@ const camPos=new THREE.Vector3(),camLook=new THREE.Vector3();let prev=performanc
 hero.position.set(0,0,18);{const sa=(CH==='kt'?-1:1)*Math.PI*.3,a=ring.reduce((p,r)=>Math.abs(wrap(r.ang-sa))<Math.abs(wrap(p.ang-sa))?r:p,ring[0]);const q=a.p.clone().addScaledVector(a.n,9);hero.position.copy(q);nav.y=groundAt(q.x,q.z);hero.rotation.y=Math.atan2(-q.x,40-q.z);nav.yaw=hero.rotation.y+Math.PI}
 let gateAngle=0;const boardCam=new THREE.Vector3(0,32,(innerHeight>innerWidth?38:58)-DZ),boardLook=new THREE.Vector3(0,36,150-DZ);
 function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/1000,.05);prev=now;clock.t+=dt;const t=clock.t;
- if(window.Train?.on){Net.move();Net.step(dt,t);Bench.step(dt,t);Game.step(dt,t);Train.frame(dt);FX.step(dt);composer.render(dt);frames++;return}
+ if(window.Train?.on){Net.move();Net.step(dt,t);Bench.step(dt,t);Game.step(dt,t);Train.frame(dt);FX.step(dt);Show.step(dt);composer.render(dt);frames++;return}
  /* movement */
  let ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0),iz=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0),len=Math.hypot(ix,iz);if(!len&&Joy.active){ix=Joy.x;iz=-Joy.y;len=Math.min(1,Math.hypot(ix,iz)*1.25)}if(len>.08){nav.target=null;marker.visible=false}
  const tg=nav.target,tdx=tg?tg.x-hero.position.x:0,tdz=tg?tg.z-hero.position.z:0,tdist=Math.hypot(tdx,tdz);if(tg&&tdist<.3){nav.target=null;marker.visible=false}else if(tg)len=1;marker.scale.setScalar(1+Math.sin(t*5)*.14);
@@ -1111,8 +1111,64 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/10
  stageGrp.leaders.forEach((l,i)=>{const s=Math.sin(t*6+i*1.05);l.armR.p.rotation.set(-.2,0,-2.2-s*.3);l.armL.p.rotation.set(-.2,0,2.2-s*.3);clearHead(l);l.root.position.y=Math.abs(s)*.13});
  const{m,seeds,d}=lanterns;for(let i=0;i<seeds.length;i++){const s=seeds[i];d.position.set(s.x+Math.sin(t*s.s+s.p)*2.2,s.y+Math.sin(t*s.s*1.8+s.p)*1.5,s.z);d.updateMatrix();m.setMatrixAt(i,d.matrix)}m.instanceMatrix.needsUpdate=true;
  for(let i=shockRings.length-1;i>=0;i--){const r=shockRings[i];r.t+=dt;const k=r.t/1.1;r.m.scale.setScalar(1+k*r.size);r.m.material.opacity=1-k;if(k>=1){scene.remove(r.m);r.m.geometry.dispose();r.m.material.dispose();shockRings.splice(i,1)}}
- Net.move();Net.step(dt,t);Bench.step(dt,t);Game.step(dt,t);FX.step(dt);composer.render(dt);frames++}
+ Net.move();Net.step(dt,t);Bench.step(dt,t);Game.step(dt,t);FX.step(dt);Show.step(dt);composer.render(dt);frames++}
 
+/* ---------- the championship fireworks show (made on first use, like a festival over the river) ----------
+   Its own particle pool with shell types: peony, chrysanthemum with trails, gold willow, rings, palms,
+   glitter, crossettes that split, letters in the sky, ground fountains and a waterfall along the fence. */
+const Show=(()=>{let N=0,pos,vel,col,base,siz,size0,life,max,kind,geo,h=0,timers=[];const G=7,Q=mobile?.4:1,C=new THREE.Color(),C2=new THREE.Color();
+ // kind bits: 1 leaves a trail, 2 twinkles, 4 willow (slow and drifting), 8 splits later, 16 holds a shape
+ function make(){N=mobile?9000:24000;pos=new Float32Array(N*3);vel=new Float32Array(N*3);col=new Float32Array(N*3);base=new Float32Array(N*3);siz=new Float32Array(N);size0=new Float32Array(N);life=new Float32Array(N);max=new Float32Array(N);kind=new Uint8Array(N);
+  geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(col,3));geo.setAttribute('aS',new THREE.BufferAttribute(siz,1));
+  const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,vertexColors:true,
+   vertexShader:'attribute float aS;varying vec3 vC;void main(){vC=color;vec4 v=modelViewMatrix*vec4(position,1.);gl_PointSize=min(aS*320./-v.z,56.);gl_Position=projectionMatrix*v;}',
+   fragmentShader:'varying vec3 vC;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;float a=smoothstep(.5,.0,d);gl_FragColor=vec4(vC*(a*a*1.8+a*.4),1.);}'});
+  const p=new THREE.Points(geo,m);p.frustumCulled=false;p.renderOrder=5;scene.add(p)}
+ function add(x,y,z,vx,vy,vz,c,size,t,k=0){h=(h+1)%N;const i=h*3;pos[i]=x;pos[i+1]=y;pos[i+2]=z;vel[i]=vx;vel[i+1]=vy;vel[i+2]=vz;base[i]=c.r;base[i+1]=c.g;base[i+2]=c.b;col[i]=c.r;col[i+1]=c.g;col[i+2]=c.b;siz[h]=size0[h]=size;life[h]=max[h]=t;kind[h]=k}
+ const dir=()=>{const th=rand(6.283),z=rand(-1,1),r=Math.sqrt(1-z*z);return[r*Math.cos(th),z,r*Math.sin(th)]};
+ function sphere(x,y,z,c,n,sp,t,size,k=0,even=.9){C.set(c);for(let i=0;i<n*Q;i++){const[a,b,d]=dir(),v=sp*rand(even,1);add(x,y,z,a*v,b*v,d*v,C,size*rand(.8,1.2),t*rand(.85,1.15),k)}}
+ const SH={
+  peony(x,y,z,p){sphere(x,y,z,p[0],170,24,2.1,2.2);sphere(x,y,z,p[1],70,12,2.3,1.6)},
+  chrys(x,y,z,p){sphere(x,y,z,p[1],140,22,2.4,1.8,1)},
+  willow(x,y,z){sphere(x,y,z,'#ffc45a',150,17,4.6,1.5,5,.7)},
+  ring(x,y,z,p){C.set(p[0]);const ax=new THREE.Vector3(...dir()),u=new THREE.Vector3(1,0,0).cross(ax).normalize(),w=ax.clone().cross(u);for(let i=0,n=110*Q;i<n;i++){const a=i/n*6.283,v=u.clone().multiplyScalar(Math.cos(a)).addScaledVector(w,Math.sin(a)).multiplyScalar(23);add(x,y,z,v.x,v.y,v.z,C,2,2.2)}sphere(x,y,z,p[2]||'#fff',40,6,1.6,1.4,2)},
+  palm(x,y,z,p){C.set(p[1]);for(let i=0;i<10;i++){const a=i/10*6.283,v=20;add(x,y,z,Math.cos(a)*v,rand(4,12),Math.sin(a)*v,C,3.4,2.4,1)}sphere(x,y,z,'#fff4c8',50,8,1.2,1.3)},
+  glitter(x,y,z){sphere(x,y,z,'#fffbe8',190,20,2.9,1.5,2)},
+  cross(x,y,z,p){sphere(x,y,z,p[0],34,18,2.4,2.4,9)},
+  double(x,y,z,p){sphere(x,y,z,p[0],130,26,2,2);sphere(x,y,z,p[3]||p[1],110,15,2.4,1.9,2)},
+ };
+ const SHELLS=['peony','chrys','ring','palm','double','cross','glitter','peony','chrys','willow'];
+ function boom(big){Audio_.boom();if(big)setTimeout(()=>Audio_.boom(),90)}
+ function shell(type,x,y,z,p){SH[type](x,y,z,p);if(Math.random()<.5)shock(x,y,z,p[0],18+rand(10));boom(type==='willow'||type==='double')}
+ // a rising comet, then the shell bursts at the top
+ function rocket(type,p,x=rand(-75,75),z=rand(45,120),y=rand(32,62)){const vy=Math.sqrt(2*G*(y-4)),t=vy/G;C.set('#fff0c0');add(x,4,z,rand(-1,1),vy,rand(-1,1),C,1.6,t,1);later(t*1000,()=>shell(type,x,y,z,p))}
+ function later(ms,fn){timers.push(setTimeout(fn,ms))}
+ // ground fountains along the outfield fence
+ function mines(p){for(let i=0;i<7;i++){const a=(i/6-.5)*1.4,x=Math.sin(a)*86,z=Math.cos(a)*86;C.set(p[i%2]);for(let k=0;k<70*Q;k++)add(x,3,z,rand(-5,5),rand(26,40),rand(-5,5),C,1.5,rand(1.3,1.9),1)}Audio_.boom()}
+ // the waterfall: a curtain of gold sparks hanging over the outfield
+ function waterfall(ms){const end=performance.now()+ms,tick=()=>{if(performance.now()>end)return;C.set('#ffd98a');for(let k=0;k<90*Q;k++)add(rand(-58,58),30+rand(1),96+rand(-1,1),rand(-.3,.3),rand(-1,0),rand(-.5,.5),C,1.3,rand(1.6,2.6),2);later(70,tick)};tick()}
+ // letters drawn in the sky
+ function letters(text,color,y=56,z=104,width=46){const c=document.createElement('canvas');c.width=256;c.height=96;const x=c.getContext('2d');x.fillStyle='#fff';x.font='bold 78px "Black Han Sans",sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(text,128,52);
+  const d=x.getImageData(0,0,256,96).data,pts=[],step=mobile?5:3;for(let py=0;py<96;py+=step)for(let px=0;px<256;px+=step)if(d[(py*256+px)*4+3]>128)pts.push([px,py]);
+  C.set(color);const k=width/256;for(const[px,py]of pts){const ox=-(px-128)*k,oy=-(py-48)*k;add(0,y,z,ox*3,oy*3,rand(-.5,.5),C,2.1,3.6,16)}sphere(0,y,z,'#ffffff',60,10,1,1.5);boom(true)}
+ function step(dt){if(!N)return;const g=G*dt;for(let i=0;i<N;i++){if(life[i]<=0)continue;life[i]-=dt;if(life[i]<=0){siz[i]=0;continue}const k=kind[i],j=i*3,f=life[i]/max[i];
+  const drag=k&16?3:k&4?1.7:.8,e=Math.exp(-drag*dt);vel[j]*=e;vel[j+1]=vel[j+1]*e-(k&16?g*.12:k&4?g*.45:g);vel[j+2]*=e;pos[j]+=vel[j]*dt;pos[j+1]+=vel[j+1]*dt;pos[j+2]+=vel[j+2]*dt;
+  let b=Math.pow(f,.55);if(k&2)b*=Math.random()<.45?1.6:.15;col[j]=base[j]*b;col[j+1]=base[j+1]*b;col[j+2]=base[j+2]*b;siz[i]=size0[i]*(.55+.45*f);
+  if(k&1&&Math.random()<dt*30){C2.setRGB(base[j]*.6+.25,base[j+1]*.5+.2,base[j+2]*.35+.1);add(pos[j],pos[j+1],pos[j+2],rand(-.4,.4),rand(-.6,0),rand(-.4,.4),C2,size0[i]*.5,k&4?1.4:.6,0)}
+  if(k&8&&f<.55){kind[i]&=~8;C2.setRGB(base[j],base[j+1],base[j+2]);for(let q=0;q<4;q++){const a=q*1.571+rand(.4);add(pos[j],pos[j+1],pos[j+2],Math.cos(a)*9,rand(-2,2),Math.sin(a)*9,C2,1.6,1.3,1)}}}
+  geo.attributes.position.needsUpdate=geo.attributes.color.needsUpdate=geo.attributes.aS.needsUpdate=true}
+ function stop(){for(const t of timers)clearTimeout(t);timers=[]}
+ // about a minute: opening fountains, single shells, waterfall with willows, letters, build-up, finale
+ function play(id,pal){if(!N)make();stop();const name=THEMES[id].name;
+  later(0,()=>mines(pal));for(let i=0;i<3;i++)later(600+i*700,()=>rocket('peony',pal));
+  let t=3200;for(let i=0;i<22;i++){const ty=SHELLS[i%SHELLS.length];later(t,()=>rocket(ty,pal));t+=rand(450,850)}
+  later(19000,()=>waterfall(11000));for(let i=0;i<8;i++)later(19500+i*1300,()=>rocket('willow',pal,rand(-60,60),rand(60,110),rand(48,64)));
+  later(31000,()=>mines(pal));later(31500,()=>letters(name,pal[0]));later(35500,()=>letters('우승',pal[1]==='#ffffff'?'#ffd34d':pal[1]));
+  t=38500;for(let i=0;i<26;i++){const ty=SHELLS[Math.floor(rand(SHELLS.length))];later(t,()=>rocket(ty,pal));if(i%3===0)later(t+150,()=>rocket(SHELLS[Math.floor(rand(SHELLS.length))],pal));t+=rand(280,520)}
+  later(50500,()=>mines(pal));for(let i=0;i<46;i++)later(51000+i*110,()=>rocket(i%4?SHELLS[i%SHELLS.length]:'willow',pal));
+  later(56500,()=>{for(let i=0;i<10;i++)rocket('willow',pal,-72+i*16,rand(70,100),rand(52,66))});
+  return 62000}
+ return{play,step,stop}})();
 /* ---------- championship: the first team to four series wins gets a fireworks show ----------
    It plays once by itself (when the clinching result arrives, or on the first visit within a day of it),
    and the dock button replays it. ?champ=samsung or ?champ=kt previews it. */
@@ -1126,20 +1182,15 @@ const Champ=(()=>{
   el.querySelector('i').textContent='2026 한국시리즈';el.querySelector('b').textContent=mine?`${FULL[id]} 우승!`:`${FULL[id]} 우승`;
   el.querySelector('small').textContent=mine?`4승 ${lost}패, 올해의 챔피언! 함께 응원해 주셔서 고맙습니다`:`${T.name} 팬 여러분, 한 시즌 정말 고생 많으셨습니다`;
   el.style.animation='none';void el.offsetWidth;el.style.animation='';clearTimeout(banner.t);banner.t=setTimeout(()=>{el.hidden=true},10000)}
- function burst(x,y,z,pal,big=1){const a=pal[Math.floor(rand(pal.length))],b=pal[Math.floor(rand(pal.length))];FX.emit(x,y,z,a,Math.round((mobile?60:130)*big),26*big,1.9,1.6);FX.emit(x,y,z,b,Math.round((mobile?28:64)*big),14*big,2.3,1.1);if(big>1.1)shock(x,y,z,a,26*big);Audio_.boom()}
- function rocket(pal,big,delay){const x=rand(-80,80),z=rand(35,125),y=rand(26,62);setTimeout(()=>{FX.emit(x,10,z,'#fff2c0',8,2,.9,.35,52);setTimeout(()=>burst(x,y,z,pal,big),900)},delay)}
- function play(id,lost=0){if(running)return;running=true;const pal=PAL[id];banner(id,lost);const say=()=>takeover({shout:`${THEMES[id].name} 우승!`},6000);say();for(let t=5000;t<36000;t+=5000)setTimeout(say,t);crowdBurst(id===CH?1.6:.6,36);
-  for(let t=0;t<12000;t+=650)rocket(pal,1,t);                       // opening: one at a time
-  for(let t=12000;t<29000;t+=420){rocket(pal,1,t);if(Math.random()<.5)rocket(pal,1.2,t+200)} // the build-up
-  for(let i=0;i<34;i++)rocket(pal,i%5?1.15:1.6,29000+i*120);       // finale
-  setTimeout(()=>{banner(id,lost);firework(pal[0],pal[1],10)},34500);
-  setTimeout(()=>{running=false},40000)}
+ function play(id,lost=0){if(running)return;running=true;const pal=PAL[id],len=Show.play(id,pal);banner(id,lost);
+  const say=()=>takeover({shout:`${THEMES[id].name} 우승!`},6000);say();for(let t=5000;t<len;t+=5000)setTimeout(say,t);crowdBurst(id===CH?1.6:.6,len/1000);
+  setTimeout(()=>banner(id,lost),len-9000);setTimeout(()=>{running=false},len)}
  function check(list){const c=winner(list),first=!seen;seen=true;if(!c)return;team=c.id;date=c.date;const btn=$('champBtn');btn.hidden=false;btn.textContent=`${THEMES[c.id].name} 우승 축포`;btn.onclick=()=>play(c.id,c.lost);
   const key='champ-'+c.date,recent=c.date>=kstDay(1);if(!recent||store.get(key,''))return;store.set(key,'1');inside(()=>play(c.id,c.lost));void first}
  const pre=new URLSearchParams(location.search).get('champ');if(pre==='kt'||pre==='samsung')inside(()=>{const b=$('champBtn');b.hidden=false;b.textContent=`${THEMES[pre].name} 우승 축포`;b.onclick=()=>play(pre,2);play(pre,2)});
  return{check,play,get team(){return team},get date(){return date}}})();
 /* the training minigame lives in its own file and loads on first use */
-function openTrain(){closeDrawer();if(window.Train){Train.open();return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=bbbace41794097540';s.onload=()=>{b.disabled=false;Train.open()};s.onerror=()=>{b.disabled=false};document.body.append(s)}
+function openTrain(){closeDrawer();if(window.Train){Train.open();return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=3482e991794099663';s.onload=()=>{b.disabled=false;Train.open()};s.onerror=()=>{b.disabled=false};document.body.append(s)}
 $('trainBtn').onclick=openTrain;
 renderHud();
 Promise.race([Promise.all([document.fonts?.ready,document.fonts?.load('40px "Alfa Slab One"')]).catch(()=>{}),new Promise(r=>setTimeout(r,1500))]).then(()=>{dress(hero,me.u,me.num,me.nick);renderBoard()});
