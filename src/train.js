@@ -17,6 +17,21 @@ const PUNISH = [
   { id: 'hands', name: '손 들고 벌서기', need: 5, btn: '더 높이!', order: '손 들어! 내리면 처음부터다!', done: '팔이… 후들후들… 반성했습니다!' },
 ];
 const SCOLD = ['오늘 그게 뭐야!', '너 이리 와 봐!', '팬들이 다 보고 있었어!', '집에 갈 생각 하지 마라!'];
+// A manager is spoken to politely and answers like one: calm, owning the result, never grovelling.
+const BOSS = {
+  scold: ['감독님, 오늘 경기 보다가 속이 다 탔습니다.', '감독님, 팬들 마음 아시죠?', '감독님, 잠깐 이야기 좀 나누시죠.', '감독님, 오늘 작전은 좀…'],
+  bow: '팬 여러분께 면목이 없습니다.',
+  order: { flick: '실례지만… 딱밤 세 대만 맞아 주시겠어요?', squat: '감독님도 앉았다 일어나기 열 번, 부탁드립니다!', hands: '죄송하지만 잠시 손 좀 들어 주시겠어요?' },
+  taps: { flick: ['허허, 맵습니다.', '음… 정신이 번쩍 드네요.', '팬심, 잘 받았습니다.'], hands: ['허허…', '이 정도야 뭐…', '팔이 좀…', '선수들 마음을 알겠군요…', '반성하겠습니다…'] },
+  done: { flick: '내일은 꼭 이기겠습니다.', squat: '헉… 선수들보다 제가 먼저 뛰어야겠네요.', hands: '팬 여러분 뜻, 무겁게 받겠습니다.' },
+  start: '그럼 감독님도 같이 특훈 가시죠!',
+  rush: '감독님, 10초만 이마 좀 빌려주세요!',
+  ouch: ['허허!', '아이고!', '맵습니다!', '알겠습니다, 알겠어요!', '작전 다시 짜겠습니다!', '이마가 얼얼하네요…', '팬심이 묵직합니다!'],
+  rushEnd: (n) => n >= 90 ? '혹이 났네요. 이 혹은 우승으로 갚겠습니다.' : n >= 50 ? '얼얼하네요. 팬 여러분 마음, 잘 알겠습니다.' : '허허, 이 정도면 견딜 만합니다.',
+  grade: (r) => r >= 1 ? '감독님, 현역 복귀하셔도 되겠습니다!' : r >= 0.6 ? '역시 감독님! 내일 경기도 부탁드립니다!' : r >= 0.35 ? '감독님, 그래도 많이 좋아지셨습니다!' : r >= 0.12 ? '감독님… 한 번 더 하시죠!' : '…감독님은 작전에 집중하시는 걸로.',
+  thanks: (good) => good ? '팬 여러분 덕분입니다. 내일 꼭 보답하겠습니다.' : '허허, 몸이 예전 같지 않네요. 한 번 더 하겠습니다.',
+};
+const boss = () => !!player?.userData.boss;
 const NUMS = ['하나', '둘', '셋', '넷', '다섯', '여섯', '일곱', '여덟', '아홉', '열'];
 const STOP = Symbol('stop');
 
@@ -149,7 +164,7 @@ const guard = (fn) => fn().catch((e) => { if (e !== STOP) console.error(e); });
 let capTimer = 0;
 function say(who, text, sec = 1.6) {
   cap.hidden = false; cap.className = who === 'coach' ? 'coach' : '';
-  cap.innerHTML = `<small>${who === 'coach' ? '코치 (나)' : esc(player?.userData.label || '')}</small>${esc(text)}`;
+  cap.innerHTML = `<small>${who === 'coach' ? (boss() ? '팬 (나)' : '코치 (나)') : esc(player?.userData.label || '')}</small>${esc(text)}`;
   capTimer = sec; return wait(sec);
 }
 function shout(text, sub = '', color = '#fff') {
@@ -251,7 +266,7 @@ function cast() {
   if (!player || player.userData.row !== pick.row) {
     dispose(player);
     player = makeChibi({ u: UA(T.homeKit), num, name, key: name, headgear: 'cap' });
-    player.userData.row = pick.row; player.userData.label = num ? `${num}번 ${name}` : `감독 ${name}`; player.userData.name = name;
+    player.userData.row = pick.row; player.userData.label = num ? `${num}번 ${name}` : `감독 ${name}`; player.userData.name = name; player.userData.boss = !num;
     S.add(player);
   }
   if (!coach || coach.userData.look !== me.u.id + me.num + me.nick) {
@@ -280,24 +295,24 @@ async function session() {
   // the player jogs in
   tick = (dt) => { const p = player.position, dx = -p.x, dz = -3 - p.z, d = Math.hypot(dx, dz); if (d > 0.05) { const k = Math.min(1, 5 * dt / d); p.x += dx * k; p.z += dz * k; stride(player, clock, 1); } else { rest(player); player.rotation.y += (0 - player.rotation.y) * Math.min(1, dt * 8); } };
   sfx('whistle');
-  await say('coach', `${name}! ${pickOne(SCOLD)}`, 1.9);
+  await say('coach', boss() ? pickOne(BOSS.scold) : `${name}! ${pickOne(SCOLD)}`, 1.9);
   // a deep bow
   tick = (dt) => { player.rotation.y += (0 - player.rotation.y) * Math.min(1, dt * 8); player.root.rotation.x += (0.55 - player.root.rotation.x) * Math.min(1, dt * 10); player.head.rotation.x = 0.25; player.armL.p.rotation.set(0, 0, 0.12); player.armR.p.rotation.set(0, 0, -0.12); };
-  await say('player', '죄송합니다!!', 1.4);
+  await say('player', boss() ? BOSS.bow : '죄송합니다!!', 1.4);
   tick = (dt) => { player.root.rotation.x *= 1 - Math.min(1, dt * 8); player.head.rotation.x *= 1 - Math.min(1, dt * 8); };
   if (pick.game === 3) { // the flick game is the scolding itself
-    await say('coach', '딱밤 10초다! 이마 대!', 1.5);
+    await say('coach', boss() ? BOSS.rush : '딱밤 10초다! 이마 대!', 1.5);
     if (my !== token) return;
     if (Net.live()) Net.send(['tg', 3]);
     const run = await flicking();
     await result(run.score, run.made);
     return;
   }
-  await say('coach', P.order, 1.5);
+  await say('coach', boss() ? BOSS.order[P.id] : P.order, 1.5);
   await punish(P);
-  await say('player', P.done, 1.8);
+  await say('player', boss() ? BOSS.done[P.id] : P.done, 1.8);
   rest(player);
-  await say('coach', '좋아, 특훈 시작이다!', 1.2);
+  await say('coach', boss() ? BOSS.start : '좋아, 특훈 시작이다!', 1.2);
   sfx('whistle');
   if (my !== token) return;
   if (Net.live()) Net.send(['tg', pick.game]);
@@ -311,7 +326,7 @@ async function flicking() {
   view = 'flick'; rest(player); rest(coach);
   player.position.set(0, 0, -3); player.rotation.y = 0; coach.position.set(1.0, 0, -2.0); coach.rotation.y = -2.36;
   const bump = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 10), toonL(0xff8f8f)); bump.position.set(0, 0.2, 0.37); bump.scale.setScalar(0.001); player.head.add(bump);
-  const LEN = 10, lines = ['아야!', '아얏!', '으악!', '봐주세요!', '잘못했어요!', '이마가…!', '으앙!', '정신 차렸습니다!', '한 대만 덜…!'];
+  const LEN = 10, lines = boss() ? BOSS.ouch : ['아야!', '아얏!', '으악!', '봐주세요!', '잘못했어요!', '이마가…!', '으앙!', '정신 차렸습니다!', '한 대만 덜…!'];
   let n = 0, hit = 0, start = Infinity;
   const head = () => S.worldToLocal(player.localToWorld(new THREE.Vector3(0, 1.45, 0.3)));
   const show = () => hudText(`<b>${n}</b> 대<br>${Math.max(0, Math.min(LEN, LEN - (clock - start))).toFixed(1)}초`);
@@ -337,7 +352,7 @@ async function flicking() {
   shout('끝!', `딱밤 ${n}대`, '#ffc861');
   await wait(1.2);
   tick = null; rest(player);
-  await say('player', n >= 90 ? '혹이 났어요…! 다시는 안 그러겠습니다!!' : n >= 50 ? '아이고 이마야… 반성했습니다!' : '헤헤, 하나도 안 아픈데요?', 1.8);
+  await say('player', boss() ? BOSS.rushEnd(n) : n >= 90 ? '혹이 났어요…! 다시는 안 그러겠습니다!!' : n >= 50 ? '아이고 이마야… 반성했습니다!' : '헤헤, 하나도 안 아픈데요?', 1.8);
   bump.removeFromParent(); bump.geometry.dispose(); bump.material.dispose();
   return { score: n, made: n };
 }
@@ -371,9 +386,9 @@ function punish(P) {
       if (n >= P.need) return;
       n += 1; hit = 1; action(P.btn, `${n} / ${P.need}`);
       const h = head();
-      if (P.id === 'flick') { sfx('bonk'); pop(h.x, h.y + 0.15, h.z, 0xffd34d, 6); say('player', ['아야!', '아얏!!', '으악! 정신 차렸습니다!'][n - 1] || '아야!', 0.8).catch(() => {}); }
+      if (P.id === 'flick') { sfx('bonk'); pop(h.x, h.y + 0.15, h.z, 0xffd34d, 6); say('player', (boss() ? BOSS.taps.flick : ['아야!', '아얏!!', '으악! 정신 차렸습니다!'])[n - 1] || '아야!', 0.8).catch(() => {}); }
       else if (P.id === 'squat') { sfx('clap'); say('player', NUMS[n - 1] + '!', 0.6).catch(() => {}); }
-      else { sfx('swish'); pop(h.x, h.y, h.z, 0x7fd0ff, 2, 0.4, 0.6); say('player', ['으으…', '버틸 수 있습니다…', '팔이…!', '조, 조금만…', '한계입니다…!'][n - 1], 0.8).catch(() => {}); }
+      else { sfx('swish'); pop(h.x, h.y, h.z, 0x7fd0ff, 2, 0.4, 0.6); say('player', (boss() ? BOSS.taps.hands : ['으으…', '버틸 수 있습니다…', '팔이…!', '조, 조금만…', '한계입니다…!'])[n - 1], 0.8).catch(() => {}); }
       if (n >= P.need) { onAct = null; action(''); wait(0.9).then(() => { tick = null; done(); }, fail); }
     };
   });
@@ -671,11 +686,12 @@ async function result(score, made) {
     if (good) { const s = Math.abs(Math.sin(clock * 6)); player.root.position.y = s * 0.35; player.armL.p.rotation.set(0, 0, 2.7); player.armR.p.rotation.set(0, 0, -2.7); }
     else { player.head.rotation.x = 0.45; player.root.rotation.x = 0.15; }
   };
-  const line = r >= 1 ? '이건 특훈이 아니라 전설이다!' : r >= 0.6 ? '특훈 완료! 내일은 MVP다!' : r >= 0.35 ? '많이 좋아졌어! 내일은 다르다!' : r >= 0.12 ? '아직 멀었다! 한 번 더!' : '…오늘은 푹 쉬고 내일 다시 보자.';
+  const rush = g === 3;
+  const line = rush ? (boss() ? '감독님, 끝까지 맞아 주셔서 감사합니다!' : '오늘은 이 정도로 봐준다!') : boss() ? BOSS.grade(r) : r >= 1 ? '이건 특훈이 아니라 전설이다!' : r >= 0.6 ? '특훈 완료! 내일은 MVP다!' : r >= 0.35 ? '많이 좋아졌어! 내일은 다르다!' : r >= 0.12 ? '아직 멀었다! 한 번 더!' : '…오늘은 푹 쉬고 내일 다시 보자.';
   await say('coach', line, 1.7);
-  await say('player', good ? '감사합니다 코치님!!' : '한 번만 더 해 주세요!', 1.4);
+  await say('player', rush ? (boss() ? '팬 여러분 마음, 이마로 잘 받았습니다.' : '감사합니다…! 내일은 잘하겠습니다!') : boss() ? BOSS.thanks(good) : good ? '감사합니다 코치님!!' : '한 번만 더 해 주세요!', 1.4);
   cap.hidden = true;
-  show(`<h2>${G.name} 결과</h2><p>${esc(player.userData.label)} 선수 특훈</p><div class="score">${score}<small> 점</small></div><p class="note">${G.made(made)}${score > myBestBefore ? ' (내 최고 기록!)' : ''}</p>
+  show(`<h2>${G.name} 결과</h2><p>${esc(player.userData.label)}${boss() ? '님과 함께한 특훈' : ' 선수 특훈'}</p><div class="score">${score}<small> 점</small></div><p class="note">${G.made(made)}${score > myBestBefore ? ' (내 최고 기록!)' : ''}</p>
     <p class="note">${line}</p>${sent && score > 0 ? `<div class="nickForm"><label for="trNick">랭킹에 올릴 닉네임</label><div class="nickRow"><input id="trNick" maxlength="8" autocomplete="off" placeholder="2~8자" value="${esc(store.get('train-nick', ''))}"><button data-nick>등록</button></div><p class="nickErr"></p></div>` : ''}<div data-rank="${g}">${rankList(g)}</div>
     <div class="row"><button data-again>한 번 더</button><button data-menu>다른 특훈</button><button data-out>구장으로</button></div>`);
   const nb = panel.querySelector('[data-nick]');
