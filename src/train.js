@@ -7,7 +7,10 @@ const GAMES = [
   { id: 'bat', name: '타격 특훈', desc: '공이 홈플레이트에 오는 순간 Space나 화면 탭으로 스윙', ref: 30, made: (n) => `안타 ${n}개`, fail: '헛스윙하거나 그냥 보내면' },
   { id: 'pitch', name: '투구 특훈', desc: '움직이는 줄을 포수 미트 자리(초록 칸)에 멈추면 스트라이크', ref: 30, made: (n) => `${n}구 연속 스트라이크`, fail: '볼을 하나라도 던지면' },
   { id: 'fly', name: '플라이볼 특훈', desc: '그림자를 보고 낙하 지점으로 달려가 잡기', ref: 150, made: (n) => `${n}개 연속 캐치`, fail: '공을 하나라도 놓치면' },
+  { id: 'flick', name: '딱밤 연타', desc: '10초 동안 이마에 딱밤을 최대한 많이', ref: 90, made: (n) => `딱밤 ${n}대`, fail: '' },
 ];
+const ORDER = [3, 0, 1, 2]; // menu order: the quick flick game first
+const MANAGERS = { kt: '이강철', samsung: '박진만' }; // listed with the players, without a number
 const PUNISH = [
   { id: 'flick', name: '딱밤 세 대', need: 3, btn: '딱밤!', order: '딱밤 세 대다! 이마 대!', done: '아야… 정신이 번쩍 듭니다!' },
   { id: 'squat', name: '앉았다 일어나기 열 번', need: 10, btn: '하나 더!', order: '앉았다 일어나기 열 번! 실시!', done: '헉헉… 열…! 다 했습니다!' },
@@ -193,7 +196,7 @@ function rankList(g) {
   if (!Net.live()) return `<p class="note">구장 서버에 연결되면 오늘의 랭킹이 보입니다. 내 최고 기록 ${myBest(g)}점</p>`;
   if (!r) return '<p class="note">랭킹을 불러오는 중…</p>';
   if (!r.list.length) return '<p class="note">아직 오늘 기록이 없어요. 첫 1위가 되어 보세요!</p>';
-  return `<ol>${r.list.map(([s, team, nick, who], i) => `<li class="${r.mine === i + 1 ? 'me' : ''}"><div><span class="tag ${team === 'samsung' ? 'samsung' : 'kt'}">${team === 'samsung' ? '삼성' : 'KT'}</span>${esc(nick)}<br><i>${esc(who)} 특훈</i></div><em>${s}</em></li>`).join('')}</ol>`
+  return `<ol>${r.list.map(([s, team, nick, who], i) => `<li class="${r.mine === i + 1 ? 'me' : ''}"><div><span class="tag ${team === 'samsung' ? 'samsung' : 'kt'}">${team === 'samsung' ? '삼성' : 'KT'}</span>${esc(nick)}<br><i>${esc(who)} ${g === 3 ? "딱밤" : "특훈"}</i></div><em>${s}</em></li>`).join('')}</ol>`
     + (r.mine ? `<p class="note">내 순위 ${r.mine}위</p>` : '');
 }
 const NICK_ERR = { INVALID: '2~8자 한글, 영문, 숫자만 쓸 수 있어요', BLOCKED: '쓸 수 없는 말이 들어 있어요', EXPIRED: '기록 시간이 지났어요. 한 번 더 해 주세요' };
@@ -218,7 +221,7 @@ function menu() {
   cancel(); scenery(); hudText(''); cap.hidden = true; gauge.hidden = true; action('');
   GAMES.forEach((_, g) => askRanks(g));
   show(`<h2>선수 특훈장</h2><p>오늘 아쉬웠던 선수를 불러 귀엽게 혼내고, 특훈으로 다시 강하게 만들어 주세요. 기록은 매일 랭킹에 오릅니다.</p>
-    ${GAMES.map((x, g) => `<button class="card" data-g="${g}"><div><b>${x.name}</b><span>${x.desc}</span></div><div class="best" data-top="${g}">${topLine(g)}</div></button>`).join('')}
+    ${ORDER.map((g) => [GAMES[g], g]).map(([x, g]) => `<button class="card" data-g="${g}"><div><b>${x.name}</b><span>${x.desc}</span></div><div class="best" data-top="${g}">${topLine(g)}</div></button>`).join('')}
     <div class="row"><button data-rk>오늘의 랭킹</button><button data-out>구장으로 돌아가기</button></div>`);
   panel.querySelectorAll('[data-g]').forEach((b) => { b.onclick = () => { pick.game = +b.dataset.g; choose(); }; });
   panel.querySelector('[data-rk]').onclick = () => rankView(pick.game);
@@ -226,15 +229,15 @@ function menu() {
 }
 function rankView(g) {
   askRanks(g);
-  show(`<button class="back">‹ 특훈장</button><h2>오늘의 랭킹</h2><div class="chips">${GAMES.map((x, i) => `<button data-t="${i}" aria-pressed="${i === g}">${x.name}</button>`).join('')}</div><div data-rank="${g}">${rankList(g)}</div>`);
+  show(`<button class="back">‹ 특훈장</button><h2>오늘의 랭킹</h2><div class="chips">${ORDER.map((i) => `<button data-t="${i}" aria-pressed="${i === g}">${GAMES[i].name}</button>`).join('')}</div><div data-rank="${g}">${rankList(g)}</div>`);
   panel.querySelector('.back').onclick = menu;
   panel.querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => rankView(+b.dataset.t); });
 }
 function choose() {
-  const groups = ROSTER[CH].map(([pos, list]) => `<optgroup label="${pos}">${list.split(',').sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).map((r) => { const [n, nm] = r.split(' '); return `<option value="${r}">${n}번 ${nm}</option>`; }).join('')}</optgroup>`).join('');
-  show(`<button class="back">‹ 특훈장</button><h2>${GAMES[pick.game].name}</h2><p>${GAMES[pick.game].desc}.<br>${GAMES[pick.game].fail} 특훈 끝! 오래 버틸수록 점수가 쌓입니다.</p>
-    <label for="trWho">특훈이 필요한 선수 (${T.name} 한국시리즈 엔트리)</label><select id="trWho">${groups}</select>
-    <label>먼저 혼내기</label><div class="chips">${PUNISH.map((p, i) => `<button data-p="${i}" aria-pressed="${i === pick.punish}">${p.name}</button>`).join('')}</div>
+  const groups = `<optgroup label="감독"><option value="- ${MANAGERS[CH]}">감독 ${MANAGERS[CH]}</option></optgroup>` + ROSTER[CH].map(([pos, list]) => `<optgroup label="${pos}">${list.split(',').sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).map((r) => { const [n, nm] = r.split(' '); return `<option value="${r}">${n}번 ${nm}</option>`; }).join('')}</optgroup>`).join('');
+  show(`<button class="back">‹ 특훈장</button><h2>${GAMES[pick.game].name}</h2><p>${GAMES[pick.game].desc}.<br>${GAMES[pick.game].fail ? GAMES[pick.game].fail + ' 특훈 끝! 오래 버틸수록 점수가 쌓입니다.' : '많이 때릴수록 높은 순위!'}</p>
+    <label for="trWho">${pick.game === 3 ? '딱밤 맞을 사람' : '특훈이 필요한 선수'} (${T.name} 한국시리즈 엔트리와 감독)</label><select id="trWho">${groups}</select>
+    <label ${pick.game === 3 ? 'hidden' : ''}>먼저 혼내기</label><div class="chips" ${pick.game === 3 ? 'hidden' : ''}>${PUNISH.map((p, i) => `<button data-p="${i}" aria-pressed="${i === pick.punish}">${p.name}</button>`).join('')}</div>
     <button class="go">특훈 시작!</button>`);
   const sel = q('trWho'); if (pick.row) sel.value = pick.row; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
   panel.querySelector('.back').onclick = menu;
@@ -244,11 +247,11 @@ function choose() {
 
 /* ---------- characters ---------- */
 function cast() {
-  const [num, name] = pick.row.split(' ');
+  const [n, name] = pick.row.split(' '), num = n === '-' ? '' : n;
   if (!player || player.userData.row !== pick.row) {
     dispose(player);
     player = makeChibi({ u: UA(T.homeKit), num, name, key: name, headgear: 'cap' });
-    player.userData.row = pick.row; player.userData.label = `${num}번 ${name}`; player.userData.name = name;
+    player.userData.row = pick.row; player.userData.label = num ? `${num}번 ${name}` : `감독 ${name}`; player.userData.name = name;
     S.add(player);
   }
   if (!coach || coach.userData.look !== me.u.id + me.num + me.nick) {
@@ -282,6 +285,14 @@ async function session() {
   tick = (dt) => { player.rotation.y += (0 - player.rotation.y) * Math.min(1, dt * 8); player.root.rotation.x += (0.55 - player.root.rotation.x) * Math.min(1, dt * 10); player.head.rotation.x = 0.25; player.armL.p.rotation.set(0, 0, 0.12); player.armR.p.rotation.set(0, 0, -0.12); };
   await say('player', '죄송합니다!!', 1.4);
   tick = (dt) => { player.root.rotation.x *= 1 - Math.min(1, dt * 8); player.head.rotation.x *= 1 - Math.min(1, dt * 8); };
+  if (pick.game === 3) { // the flick game is the scolding itself
+    await say('coach', '딱밤 10초다! 이마 대!', 1.5);
+    if (my !== token) return;
+    if (Net.live()) Net.send(['tg', 3]);
+    const run = await flicking();
+    await result(run.score, run.made);
+    return;
+  }
   await say('coach', P.order, 1.5);
   await punish(P);
   await say('player', P.done, 1.8);
@@ -290,10 +301,46 @@ async function session() {
   sfx('whistle');
   if (my !== token) return;
   if (Net.live()) Net.send(['tg', pick.game]);
-  const run = await [batting, pitching, fielding][pick.game]();
+  const run = await [batting, pitching, fielding, flicking][pick.game]();
   await result(run.score, run.made);
 }
 const pickOne = (a) => { let i; do i = Math.floor(Math.random() * a.length); while (a.length > 1 && i === lastSay); lastSay = i; return a[i]; };
+
+/* ---------- 4. flick rush: ten seconds, as many as you can ---------- */
+async function flicking() {
+  view = 'flick'; rest(player); rest(coach);
+  player.position.set(0, 0, -3); player.rotation.y = 0; coach.position.set(1.0, 0, -2.0); coach.rotation.y = -2.36;
+  const bump = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 10), toonL(0xff8f8f)); bump.position.set(0, 0.2, 0.37); bump.scale.setScalar(0.001); player.head.add(bump);
+  const LEN = 10, lines = ['아야!', '아얏!', '으악!', '봐주세요!', '잘못했어요!', '이마가…!', '으앙!', '정신 차렸습니다!', '한 대만 덜…!'];
+  let n = 0, hit = 0, start = Infinity;
+  const head = () => S.worldToLocal(player.localToWorld(new THREE.Vector3(0, 1.45, 0.3)));
+  const show = () => hudText(`<b>${n}</b> 대<br>${Math.max(0, Math.min(LEN, LEN - (clock - start))).toFixed(1)}초`);
+  tick = (dt) => {
+    hit = Math.max(0, hit - dt * 6); const k = Math.sin(Math.min(hit, 1) * Math.PI);
+    player.head.rotation.x = -0.5 * k; player.root.rotation.x = -0.12 * k; player.mouth.scale.set(1, 1 + k * 1.5, 1);
+    coach.armL.p.rotation.set(-1.5 * hit - 0.2, 0, 0.3);
+    bump.scale.setScalar(Math.max(0.001, Math.min(2.4, n / 22)));
+    if (start < Infinity) show();
+  };
+  action('딱밤!', 'Space 또는 탭'); hudText('<b>0</b> 대<br>10.0초');
+  shout('준비…', '', '#fff'); await wait(1.0); shout('시작!', '', '#ffc861'); sfx('whistle');
+  start = clock;
+  onAct = () => {
+    if (clock - start >= LEN) return;
+    n += 1; hit = 1;
+    if (n % 2) sfx('bonk');
+    const h = head(); pop(h.x, h.y + 0.15, h.z, 0xffd34d, 3);
+    if (n % 7 === 0) say('player', pickOne(lines), 0.7).catch(() => {});
+  };
+  await wait(LEN);
+  onAct = null; action(''); show(); sfx('whistle');
+  shout('끝!', `딱밤 ${n}대`, '#ffc861');
+  await wait(1.2);
+  tick = null; rest(player);
+  await say('player', n >= 90 ? '혹이 났어요…! 다시는 안 그러겠습니다!!' : n >= 50 ? '아이고 이마야… 반성했습니다!' : '헤헤, 하나도 안 아픈데요?', 1.8);
+  bump.removeFromParent(); bump.geometry.dispose(); bump.material.dispose();
+  return { score: n, made: n };
+}
 
 function punish(P) {
   return new Promise((done, fail) => {

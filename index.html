@@ -1190,7 +1190,7 @@ const Champ=(()=>{
  const pre=new URLSearchParams(location.search).get('champ');if(pre==='kt'||pre==='samsung')inside(()=>{const b=$('champBtn');b.hidden=false;b.textContent=`${THEMES[pre].name} 우승 축포`;b.onclick=()=>play(pre,2);play(pre,2)});
  return{check,play,get team(){return team},get date(){return date}}})();
 /* the training minigame lives in its own file and loads on first use */
-function openTrain(){closeDrawer();if(window.Train){Train.open();return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=3482e991794099663';s.onload=()=>{b.disabled=false;Train.open()};s.onerror=()=>{b.disabled=false};document.body.append(s)}
+function openTrain(){closeDrawer();if(window.Train){Train.open();return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=1989df31794119664';s.onload=()=>{b.disabled=false;Train.open()};s.onerror=()=>{b.disabled=false};document.body.append(s)}
 $('trainBtn').onclick=openTrain;
 renderHud();
 Promise.race([Promise.all([document.fonts?.ready,document.fonts?.load('40px "Alfa Slab One"')]).catch(()=>{}),new Promise(r=>setTimeout(r,1500))]).then(()=>{dress(hero,me.u,me.num,me.nick);renderBoard()});
