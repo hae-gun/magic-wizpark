@@ -114,6 +114,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #scoreFx.theirs{animation-duration:2.6s;background:#000a;padding:8px 20px}#scoreFx.theirs b{font-size:clamp(24px,6vw,40px);text-shadow:none;color:#d4c9df}#scoreFx.theirs span{font-size:15px}
 @keyframes fxIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}10%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}16%{transform:translate(-50%,-50%) scale(1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}
 @media (prefers-reduced-motion:reduce){#scoreFx{animation:none}}
+#champFx{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%);z-index:31;pointer-events:none;text-align:center;padding:18px 40px 16px;border-radius:18px;color:#fff;background:radial-gradient(ellipse at center,#000000c0,#0000 74%);animation:champIn 10s cubic-bezier(.2,1.4,.4,1) both;width:max-content;max-width:calc(100vw - 24px)}
+#champFx i{display:block;font:400 clamp(15px,3.6vw,22px) "Black Han Sans",sans-serif;font-style:normal;color:var(--champ-sub,#fff);letter-spacing:2px;text-shadow:0 2px 3px #000}
+#champFx b{display:block;margin:4px 0;font:400 clamp(38px,9vw,86px)/1.05 "Black Han Sans",sans-serif;color:var(--champ,#ffc861);text-shadow:0 5px 0 #000b,0 0 4px #000,0 0 40px var(--champ,#ffc861);-webkit-text-stroke:1.5px #0008;word-break:keep-all}
+#champFx small{display:block;margin-top:8px;font-size:clamp(13px,3.4vw,17px);text-shadow:0 2px 3px #000,0 0 8px #000c;word-break:keep-all}
+#champFx.theirs b{font-size:clamp(30px,7vw,60px)}
+@keyframes champIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}6%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}10%{transform:translate(-50%,-50%) scale(1)}88%{opacity:1}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}
+@media (prefers-reduced-motion:reduce){#champFx{animation:none}}
+#dock #champBtn{color:var(--gold)}
 #innPick{min-height:38px;padding:3px 6px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px}#numPick,#editPick{width:100%;box-sizing:border-box;padding:9px 10px;margin-bottom:10px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:5px;font:inherit;font-size:13px}#editPick{margin:3px 0 0}#gate .backRow{display:grid;grid-template-columns:1fr 76px;gap:8px}#numIn{text-align:center}#numIn{width:100%;box-sizing:border-box;padding:11px 12px;margin-bottom:10px;background:#ffffff14;border:1px solid var(--line);border-radius:5px}
 #enter{width:100%;padding:13px;border-radius:5px;background:var(--kt-red);font:400 20px var(--display)}
 #gate footer{margin-top:12px;font-size:11px;line-height:1.5;color:var(--dim)}
@@ -155,6 +163,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
   <button id="actBtn" aria-expanded="false">격한 응원<kbd>X</kbd></button>
   <button id="seatBtn" aria-expanded="false">자리 이동<kbd>T</kbd></button>
   <button id="trainBtn">선수 특훈<kbd>K</kbd></button>
+  <button id="champBtn" hidden>우승 축포</button>
   <select id="innPick" hidden aria-label="재연할 회 고르기"></select>
   <button id="gameBtn" hidden aria-pressed="true">내 캐릭터 보기<kbd>V</kbd></button>
   <button id="boardBtn" aria-pressed="false">전광판 보기<kbd>B</kbd></button>
@@ -163,6 +172,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 </nav>
 
 <div id="scoreFx" hidden aria-live="polite"><b></b><span></span><small></small></div>
+<div id="champFx" hidden aria-live="polite"><i></i><b></b><small></small></div>
 <section id="gate">
   <div id="gateBox">
     <h1><span id="titleA"></span><br><em id="titleB"></em></h1>
@@ -800,7 +810,7 @@ let demoTimer;
 function startDemo(mode){if(live.status==='demo'&&demoTimer)return;live.status='demo';fence.visible=true;$('mode').innerHTML=mode||'<b>시연 장면</b> 실제 중계가 아니며 점수와 순서는 꾸민 내용입니다';live.boardTitle='시연 장면 (실제 중계 아님)';live.first=true;Demo.step();demoTimer=setInterval(Demo.step,3400)}
 function stopDemo(){if(!demoTimer)return;clearInterval(demoTimer);demoTimer=null;live.state=null;live.seen.clear();live.last={};live.first=true;live.lines=[]}
 function applyLive(d){const g=d.game;
- const wasLive=live.gameLive;live.gameLive=g?.statusCode==='STARTED';fence.visible=live.gameLive;live.series=d.series||[];if(g?.statusCode==='RESULT'&&wasLive&&d.relay){const st=normalize(d.relay),my=live.teams.ktHome?st.home-st.away:st.away-st.home;if(my>0){shout('승리!');firework(T.kit.fx,T.gold,16);crowdBurst(1.3,8)}else if(my<0)crowdBurst(.03,4)}if(!g){stopDemo();Game.stopLive();live.takeover=null;live.imgbatter=live.imgpitcher=null;live.startAt=null;live.status='idle';live.state=null;live.lines=[];live.idle='오늘은 예정된 경기가 없습니다';live.label='경기 없음';live.boardTitle=`${T.title.join(' ')} 전광판`;$('mode').innerHTML='<b>경기 없음</b> 다음 경기를 기다리는 중입니다';renderHud();return POLL_MS*6}
+ const wasLive=live.gameLive;live.gameLive=g?.statusCode==='STARTED';fence.visible=live.gameLive;live.series=d.series||[];Champ.check(live.series);if(g?.statusCode==='RESULT'&&wasLive&&d.relay){const st=normalize(d.relay),my=live.teams.ktHome?st.home-st.away:st.away-st.home;if(my>0){shout('승리!');firework(T.kit.fx,T.gold,16);crowdBurst(1.3,8)}else if(my<0)crowdBurst(.03,4)}if(!g){stopDemo();Game.stopLive();live.takeover=null;live.imgbatter=live.imgpitcher=null;live.startAt=null;live.status='idle';live.state=null;live.lines=[];live.idle='오늘은 예정된 경기가 없습니다';live.label='경기 없음';live.boardTitle=`${T.title.join(' ')} 전광판`;$('mode').innerHTML='<b>경기 없음</b> 다음 경기를 기다리는 중입니다';renderHud();return POLL_MS*6}
  stopDemo();live.status='live';const ktHome=g.homeTeamCode===T.code;live.teams={home:g.homeTeamName,away:g.awayTeamName,ktHome,homeCode:g.homeTeamCode,awayCode:g.awayTeamCode};live.boardTitle=`${g.awayTeamName} : ${g.homeTeamName}`;
  const pre=/BEFORE|READY/.test(g.statusCode),done=g.statusCode==='RESULT',at=(g.gameDateTime||'').slice(11,16);
  {const start=pre&&g.gameDateTime?Date.parse(g.gameDateTime+'+09:00'):NaN;live.startAt=Number.isFinite(start)?start:null}live.label=pre?'경기 전':done?'경기 종료':undefined;if(pre||done)Song.stop();live.idle=pre?`오늘 ${at} 시작, 선발 ${g.awayStarterName||'미정'} 대 ${g.homeStarterName||'미정'}`:done?'오늘 경기는 끝났습니다':null;
@@ -1103,8 +1113,33 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-prev)/10
  for(let i=shockRings.length-1;i>=0;i--){const r=shockRings[i];r.t+=dt;const k=r.t/1.1;r.m.scale.setScalar(1+k*r.size);r.m.material.opacity=1-k;if(k>=1){scene.remove(r.m);r.m.geometry.dispose();r.m.material.dispose();shockRings.splice(i,1)}}
  Net.move();Net.step(dt,t);Bench.step(dt,t);Game.step(dt,t);FX.step(dt);composer.render(dt);frames++}
 
+/* ---------- championship: the first team to four series wins gets a fireworks show ----------
+   It plays once by itself (when the clinching result arrives, or on the first visit within a day of it),
+   and the dock button replays it. ?champ=samsung or ?champ=kt previews it. */
+const Champ=(()=>{
+ const FULL={kt:'KT 위즈',samsung:'삼성 라이온즈'},PAL={kt:['#e3122c','#ffc861','#ffffff','#9b4dff','#ff4259'],samsung:['#0a56b5','#ffffff','#d8e6ff','#4fa3ff','#ffd34d']};
+ let seen=false,team=null,date='',running=false;
+ const kstDay=(o=0)=>new Date(Date.now()+9*3600e3-o*86400e3).toISOString().slice(0,10).replaceAll('-','');
+ function winner(list){const w={};for(const r of list||[]){const c=r.homeScore>r.awayScore?r.homeTeamCode:r.awayScore>r.homeScore?r.awayTeamCode:null;if(!c)continue;w[c]=(w[c]||0)+1;if(w[c]===4){const id=c===THEMES.samsung.code?'samsung':'kt',other=id==='kt'?THEMES.samsung.code:THEMES.kt.code;return{id,date:r.date,lost:w[other]||0}}}return null}
+ const inside=fn=>{const go=()=>$('gate').classList.contains('off')?setTimeout(fn,1500):setTimeout(go,600);go()};
+ function banner(id,lost){const el=$('champFx'),mine=id===CH;el.hidden=false;el.className=mine?'mine':'theirs';el.style.setProperty('--champ',id==='kt'?'#ffc861':'#7fc0ff');el.style.setProperty('--champ-sub',id==='kt'?'#ffd9a0':'#d8e6ff');
+  el.querySelector('i').textContent='2026 한국시리즈';el.querySelector('b').textContent=mine?`${FULL[id]} 우승!`:`${FULL[id]} 우승`;
+  el.querySelector('small').textContent=mine?`4승 ${lost}패, 올해의 챔피언! 함께 응원해 주셔서 고맙습니다`:`${T.name} 팬 여러분, 한 시즌 정말 고생 많으셨습니다`;
+  el.style.animation='none';void el.offsetWidth;el.style.animation='';clearTimeout(banner.t);banner.t=setTimeout(()=>{el.hidden=true},10000)}
+ function burst(x,y,z,pal,big=1){const a=pal[Math.floor(rand(pal.length))],b=pal[Math.floor(rand(pal.length))];FX.emit(x,y,z,a,Math.round((mobile?60:130)*big),26*big,1.9,1.6);FX.emit(x,y,z,b,Math.round((mobile?28:64)*big),14*big,2.3,1.1);if(big>1.1)shock(x,y,z,a,26*big);Audio_.boom()}
+ function rocket(pal,big,delay){const x=rand(-80,80),z=rand(35,125),y=rand(26,62);setTimeout(()=>{FX.emit(x,10,z,'#fff2c0',8,2,.9,.35,52);setTimeout(()=>burst(x,y,z,pal,big),900)},delay)}
+ function play(id,lost=0){if(running)return;running=true;const pal=PAL[id];banner(id,lost);const say=()=>takeover({shout:`${THEMES[id].name} 우승!`},6000);say();for(let t=5000;t<36000;t+=5000)setTimeout(say,t);crowdBurst(id===CH?1.6:.6,36);
+  for(let t=0;t<12000;t+=650)rocket(pal,1,t);                       // opening: one at a time
+  for(let t=12000;t<29000;t+=420){rocket(pal,1,t);if(Math.random()<.5)rocket(pal,1.2,t+200)} // the build-up
+  for(let i=0;i<34;i++)rocket(pal,i%5?1.15:1.6,29000+i*120);       // finale
+  setTimeout(()=>{banner(id,lost);firework(pal[0],pal[1],10)},34500);
+  setTimeout(()=>{running=false},40000)}
+ function check(list){const c=winner(list),first=!seen;seen=true;if(!c)return;team=c.id;date=c.date;const btn=$('champBtn');btn.hidden=false;btn.textContent=`${THEMES[c.id].name} 우승 축포`;btn.onclick=()=>play(c.id,c.lost);
+  const key='champ-'+c.date,recent=c.date>=kstDay(1);if(!recent||store.get(key,''))return;store.set(key,'1');inside(()=>play(c.id,c.lost));void first}
+ const pre=new URLSearchParams(location.search).get('champ');if(pre==='kt'||pre==='samsung')inside(()=>{const b=$('champBtn');b.hidden=false;b.textContent=`${THEMES[pre].name} 우승 축포`;b.onclick=()=>play(pre,2);play(pre,2)});
+ return{check,play,get team(){return team},get date(){return date}}})();
 /* the training minigame lives in its own file and loads on first use */
-function openTrain(){closeDrawer();if(window.Train){Train.open();return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=40534831794066133';s.onload=()=>{b.disabled=false;Train.open()};s.onerror=()=>{b.disabled=false};document.body.append(s)}
+function openTrain(){closeDrawer();if(window.Train){Train.open();return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=bbbace41794097540';s.onload=()=>{b.disabled=false;Train.open()};s.onerror=()=>{b.disabled=false};document.body.append(s)}
 $('trainBtn').onclick=openTrain;
 renderHud();
 Promise.race([Promise.all([document.fonts?.ready,document.fonts?.load('40px "Alfa Slab One"')]).catch(()=>{}),new Promise(r=>setTimeout(r,1500))]).then(()=>{dress(hero,me.u,me.num,me.nick);renderBoard()});

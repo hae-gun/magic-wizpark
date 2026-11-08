@@ -110,7 +110,7 @@ const trail = [...Array(40)].map(() => { const m = new THREE.Mesh(new THREE.Sphe
 let trailAt = 0;
 const dropTrail = (p) => { const m = trail[trailAt++ % trail.length]; m.position.copy(p); m.visible = true; };
 const clearTrail = () => trail.forEach((m) => { m.visible = false; });
-const bat = (() => { const g = new THREE.Group(), b = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.028, 0.95, 10), toonL(0xc8955a)); b.position.y = 0.55; b.castShadow = true; g.add(b); g.rotation.order = 'YXZ'; return g; })();
+const bat = (() => { const g = new THREE.Group(), b = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.028, 0.95, 10), toonL(0xc8955a)); b.position.y = 0.47; b.castShadow = true; g.add(b); g.rotation.order = 'YXZ'; return g; })();
 
 let player = null, coach = null;
 const dispose = (o) => { if (!o) return; S.remove(o); o.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); m.material.map?.dispose(); m.material.dispose(); } }); };
@@ -333,11 +333,42 @@ function punish(P) {
 }
 
 /* ---------- 1. batting ---------- */
+// The swing is keyframed around the hands, in the batter's own frame (facing the plate is +z, the pitcher is +x),
+// with the hands kept in front of the belly and the bat kept clear of the big head the whole way round.
+const V = (x, y, z) => new THREE.Vector3(x, y, z).normalize(), UP = new THREE.Vector3(0, 1, 0), DOWN = new THREE.Vector3(0, -1, 0), AXIS_Y = new THREE.Vector3(0, 1, 0);
+const SWING = [ // [time 0..1, bat direction from the hands, hands position]
+  [0, V(-0.55, 0.8, -0.2), new THREE.Vector3(-0.08, 0.82, 0.34)],   // loaded over the back shoulder
+  [0.25, V(-1, 0.2, 0.05), new THREE.Vector3(-0.06, 0.78, 0.36)],   // barrel drops level behind
+  [0.42, V(-0.7, 0.04, 0.7), new THREE.Vector3(-0.02, 0.76, 0.38)],
+  [0.55, V(0, 0, 1), new THREE.Vector3(0.02, 0.76, 0.38)],          // contact, out over the plate
+  [0.68, V(0.75, 0.05, 0.65), new THREE.Vector3(0.12, 0.8, 0.34)],
+  [0.82, V(0.95, 0.2, -0.25), new THREE.Vector3(0.25, 0.84, 0.24)],
+  [1, V(-0.2, 0.3, -0.93), new THREE.Vector3(0.35, 0.88, 0.08)],    // follow-through wraps behind the back, clear of the head
+].map(([t, d, h]) => [t, new THREE.Quaternion().setFromUnitVectors(UP, d), h]);
+const _q = new THREE.Quaternion(), _h = new THREE.Vector3(), _a = new THREE.Vector3();
+function swingPose(ch, s, sway = 0) {
+  let i = 0; while (i < SWING.length - 2 && s > SWING[i + 1][0]) i += 1;
+  const [t0, q0, h0] = SWING[i], [t1, q1, h1] = SWING[i + 1], k = Math.min(1, Math.max(0, (s - t0) / (t1 - t0)));
+  _q.slerpQuaternions(q0, q1, k); if (sway) _q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), sway));
+  _h.lerpVectors(h0, h1, k);
+  bat.position.copy(_h); bat.quaternion.copy(_q);
+  // hips open toward the pitcher, eyes stay on the ball
+  const twist = Math.max(0, Math.min(1, (s - 0.2) / 0.6)) * 0.8;
+  ch.root.rotation.y = twist; ch.head.rotation.y = 1.2 - twist * 0.95;
+  ch.legL.rotation.x = -0.25 * Math.sin(Math.min(1, s * 1.6) * Math.PI); ch.legR.rotation.x = 0.15 * twist;
+  // both hands reach for the handle
+  const twistQ = new THREE.Quaternion().setFromAxisAngle(AXIS_Y, -twist);
+  for (const [arm, along] of [[ch.armR, 0], [ch.armL, 0.11]]) {
+    _a.set(0, along, 0).applyQuaternion(_q).add(_h); _a.y -= ch.root.position.y; _a.applyQuaternion(twistQ).sub(arm.p.position).normalize();
+    arm.p.quaternion.setFromUnitVectors(DOWN, _a);
+  }
+}
+
 async function batting() {
   view = 'bat'; aim(0, -6);
   const zone = S.userData.zone; zone.visible = false;
   player.position.set(-0.85, 0, 0.15); player.rotation.y = Math.PI / 2;
-  player.root.add(bat); bat.position.set(-0.18, 1.0, 0.22);
+  player.add(bat);
   coach.position.set(0, 0.25, -18.4); coach.rotation.y = 0;
   cam.position.set(0.55, 1.9, 4.2); cam.lookAt(-0.1, 1.0, -14);
   let score = 0, out = 0;
@@ -347,8 +378,7 @@ async function batting() {
     let swingT = -1, swungAt = 0, fly = null;
     const tf = i >= 3 && Math.random() < 0.25 ? 1.2 - Math.min(i, 20) * 0.015 : Math.max(0.55, 1.02 - i * 0.03) + (Math.random() - 0.5) * Math.min(0.2, 0.08 + i * 0.006);
     const kmh = Math.round(195 - 70 * Math.min(tf, 1.05));
-    const stance = () => { bat.rotation.set(0.7, -Math.PI / 2, 0); player.root.rotation.y = 0; player.armL.p.rotation.set(-1.1, 0, 0.5); player.armR.p.rotation.set(-1.1, 0, -0.1); player.head.rotation.y = 1.25; };
-    stance(); rest(coach);
+    rest(player); swingPose(player, 0); rest(coach);
     const t0 = clock, windup = 0.75, arrive = t0 + windup + tf;
     let result = null;
     ball.visible = false; ballM.color.set(0xffffff);
@@ -367,10 +397,9 @@ async function batting() {
       }
       // the swing
       if (swingT >= 0) {
-        const s = Math.min(1, (now - swingT) / 0.24);
-        bat.rotation.set(0.7 + (Math.PI / 2 - 0.7) * Math.min(1, s * 2.2), -Math.PI / 2 + s * Math.PI * 1.45, 0);
-        player.root.rotation.y = s * 1.1; player.head.rotation.y = 1.25 - s * 0.9;
-      }
+        const s = Math.min(1, (now - swingT) / 0.26);
+        swingPose(player, 1 - (1 - s) ** 2.2); // quick through the zone, easing into the finish
+      } else swingPose(player, 0, Math.sin(now * 3) * 0.12 - (w >= 0.6 ? 0.18 : 0)); // a small waggle, then cocks back as the ball is released
       if (!result && swingT >= 0) {
         const e = swungAt + 0.06 - arrive;
         const a = Math.abs(e);
