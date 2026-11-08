@@ -122,6 +122,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 @keyframes champIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}6%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}10%{transform:translate(-50%,-50%) scale(1)}88%{opacity:1}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}
 @media (prefers-reduced-motion:reduce){#champFx{animation:none}}
 #dock #champBtn{color:var(--gold)}
+#rageBtn{position:fixed;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:7px;padding:7px 13px 7px 8px;border-radius:30px;background:linear-gradient(180deg,#ff5a4a,#d61f2c);color:#fff;border:2px solid #fff;box-shadow:0 4px 0 #7a0d16,0 6px 14px #0006;font-weight:700;font-size:12.5px;line-height:1.15;text-align:left;pointer-events:auto;animation:rageWob 3.2s ease-in-out infinite}
+#rageBtn b{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#ffd34d;color:#7a0d16;font:400 17px var(--display);transform:rotate(-12deg)}
+#rageBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #7a0d16}
+@keyframes rageWob{0%,86%,100%{transform:rotate(0)}89%{transform:rotate(-6deg)}92%{transform:rotate(6deg)}95%{transform:rotate(-3deg)}}
+@media (prefers-reduced-motion:reduce){#rageBtn{animation:none}}
+#song{bottom:calc(146px + env(safe-area-inset-bottom,0px))}
+@media (max-width:860px){#rageBtn{bottom:calc(244px + env(safe-area-inset-bottom,0px));left:calc(14px + env(safe-area-inset-left,0px))}}
+@media (max-width:860px) and (max-height:520px){#rageBtn{bottom:calc(120px + env(safe-area-inset-bottom,0px))}}
 #innPick{min-height:38px;padding:3px 6px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px}#numPick,#editPick{width:100%;box-sizing:border-box;padding:9px 10px;margin-bottom:10px;background:#2a2036;color:#fff;border:1px solid var(--line);border-radius:5px;font:inherit;font-size:13px}#editPick{margin:3px 0 0}#gate .backRow{display:grid;grid-template-columns:1fr 76px;gap:8px}#numIn{text-align:center}#numIn{width:100%;box-sizing:border-box;padding:11px 12px;margin-bottom:10px;background:#ffffff14;border:1px solid var(--line);border-radius:5px}
 #enter{width:100%;padding:13px;border-radius:5px;background:var(--kt-red);font:400 20px var(--display)}
 #gate footer{margin-top:12px;font-size:11px;line-height:1.5;color:var(--dim)}
@@ -172,6 +180,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 </nav>
 
 <div id="scoreFx" hidden aria-live="polite"><b></b><span></span><small></small></div>
+<button id="rageBtn" class="hud" aria-label="화풀이 딱밤 때리기"><b>딱!</b><span>화풀이<br>딱밤 때리기</span></button>
 <div id="champFx" hidden aria-live="polite"><i></i><b></b><small></small></div>
 <section id="gate">
   <div id="gateBox">
@@ -1190,8 +1199,8 @@ const Champ=(()=>{
  const pre=new URLSearchParams(location.search).get('champ');if(pre==='kt'||pre==='samsung')inside(()=>{const b=$('champBtn');b.hidden=false;b.textContent=`${THEMES[pre].name} 우승 축포`;b.onclick=()=>play(pre,2);play(pre,2)});
  return{check,play,get team(){return team},get date(){return date}}})();
 /* the training minigame lives in its own file and loads on first use */
-function openTrain(){closeDrawer();if(window.Train){Train.open();return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=__BUILD__';s.onload=()=>{b.disabled=false;Train.open()};s.onerror=()=>{b.disabled=false};document.body.append(s)}
-$('trainBtn').onclick=openTrain;
+function openTrain(game){closeDrawer();if(window.Train){Train.open(game);return}const b=$('trainBtn');b.disabled=true;const s=document.createElement('script');s.src='train.js?v=__BUILD__';s.onload=()=>{b.disabled=false;Train.open(game)};s.onerror=()=>{b.disabled=false};document.body.append(s)}
+$('trainBtn').onclick=()=>openTrain();$('rageBtn').onclick=()=>openTrain(3);
 renderHud();
 Promise.race([Promise.all([document.fonts?.ready,document.fonts?.load('40px "Alfa Slab One"')]).catch(()=>{}),new Promise(r=>setTimeout(r,1500))]).then(()=>{dress(hero,me.u,me.num,me.nick);renderBoard()});
 wear(me.u);

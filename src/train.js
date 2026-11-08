@@ -253,7 +253,7 @@ function choose() {
   show(`<button class="back">‹ 특훈장</button><h2>${GAMES[pick.game].name}</h2><p>${GAMES[pick.game].desc}.<br>${GAMES[pick.game].fail ? GAMES[pick.game].fail + ' 특훈 끝! 오래 버틸수록 점수가 쌓입니다.' : '많이 때릴수록 높은 순위!'}</p>
     <label for="trWho">${pick.game === 3 ? '딱밤 맞을 사람' : '특훈이 필요한 선수'} (${T.name} 한국시리즈 엔트리와 감독)</label><select id="trWho">${groups}</select>
     <label ${pick.game === 3 ? 'hidden' : ''}>먼저 혼내기</label><div class="chips" ${pick.game === 3 ? 'hidden' : ''}>${PUNISH.map((p, i) => `<button data-p="${i}" aria-pressed="${i === pick.punish}">${p.name}</button>`).join('')}</div>
-    <button class="go">특훈 시작!</button>`);
+    <button class="go">${pick.game === 3 ? '딱밤 시작!' : '특훈 시작!'}</button>`);
   const sel = q('trWho'); if (pick.row) sel.value = pick.row; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
   panel.querySelector('.back').onclick = menu;
   panel.querySelectorAll('[data-p]').forEach((b) => { b.onclick = () => { pick.punish = +b.dataset.p; panel.querySelectorAll('[data-p]').forEach((x) => x.setAttribute('aria-pressed', x === b)); }; });
@@ -712,12 +712,13 @@ async function result(score, made) {
 
 /* ---------- open, close, frame ---------- */
 let frameN = 0, fov0 = 60;
-function open() {
+function open(game) {
   if (on) return;
   on = true; root.hidden = false; document.body.classList.add('training'); S.visible = true; fov0 = camera.fov;
   for (const k of Object.keys(keys)) keys[k] = false;
   pick.row = store.get('train-row', '') || '';
   menu();
+  if (Number.isInteger(game) && GAMES[game]) { pick.game = game; choose(); } // straight to a drill, e.g. the flick button
 }
 function close() {
   areaLine.visible = false;
